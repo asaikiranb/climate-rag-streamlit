@@ -1,8 +1,17 @@
-"""Hybrid retrieval: vector search + BM25 + RRF + optional cross-encoder reranking."""
+"""Hybrid retrieval: vector search + BM25 + RRF + optional cross-encoder reranking.
+
+Retrieval strategy:
+  1. Multi-query expansion — generate 2 alternative phrasings per query, embed all 3,
+     and fuse their vector results via RRF before merging with BM25. This significantly
+     improves recall for source-specific questions ("according to the HPMP poster...")
+     where a single embedding misses semantically-close-but-wrong documents.
+  2. Hybrid BM25 + vector RRF — keyword and semantic signals are complementary.
+  3. Optional reranking — Contextual AI ctxl-rerank-v2 for final ordering.
+"""
 
 import os
 import time as _time
-from typing import List, Dict
+from typing import List, Dict, Optional
 
 import numpy as np
 from dotenv import load_dotenv
@@ -13,6 +22,50 @@ import chromadb
 from config import RETRIEVAL_TOP_K, RETRIEVAL_CANDIDATE_K
 
 load_dotenv()
+
+
+def _expand_query(query: str) -> List[str]:
+    """
+    Generate alternative phrasings for a query to improve recall.
+
+    Uses lightweight rule-based expansion (no LLM needed — fast, deterministic,
+    zero API cost). Returns the original query plus 2 alternatives. The alternatives
+    strip source-attribution phrases ("according to X", "as described in Y") which
+    cause embedding models to anchor on the source name rather than the content.
+    """
+    import re
+    alternatives = [query]
+
+    # 1. Strip source-attribution prefix: "According to X, what is Y?" → "What is Y?"
+    stripped = re.sub(
+        r"^(according to|as (described|stated|mentioned|shown|explained|presented) in|"
+        r"based on|per|from|in|as per)\s+[^,?]+[,?]\s*",
+        "",
+        query,
+        flags=re.IGNORECASE,
+    ).strip()
+    # Only add if meaningfully different (not just punctuation difference)
+    if stripped and stripped.lower().rstrip("?. ") != query.lower().rstrip("?. ") and len(stripped) > 10:
+        alternatives.append(stripped)
+
+    # 2. Convert question form to declarative keyword form for better BM25/vector match
+    # "What are the X?" → "X" / "How does X work?" → "X mechanism"
+    declarative = re.sub(r"^(what (is|are|were|was)|how (does|do|did|is)|why (is|does|did)|"
+                         r"when (did|was|is)|which|who|where)\s+", "", query, flags=re.IGNORECASE).strip()
+    declarative = re.sub(r"\?$", "", declarative).strip()
+    if declarative and declarative != query and declarative not in alternatives and len(declarative) > 10:
+        alternatives.append(declarative)
+
+    # Deduplicate while preserving order
+    seen = set()
+    deduped = []
+    for a in alternatives:
+        key = a.lower().rstrip("?. ")
+        if key not in seen:
+            seen.add(key)
+            deduped.append(a)
+
+    return deduped[:3]  # original + up to 2 alternatives
 
 
 class HybridRetriever:
@@ -66,30 +119,75 @@ class HybridRetriever:
         self.bm25 = BM25Okapi(tokenized)
         print(f"BM25 index built with {len(documents)} documents")
 
-    def vector_search(self, query: str, top_k: int = RETRIEVAL_CANDIDATE_K, brand_filter: str = None) -> List[Dict]:
-        """Semantic search via ChromaDB embeddings."""
-        query_embedding = self.embedding_model.encode(query).tolist()
+    def vector_search(
+        self,
+        query: str,
+        top_k: int = RETRIEVAL_CANDIDATE_K,
+        brand_filter: str = None,
+        extra_queries: Optional[List[str]] = None,
+    ) -> List[Dict]:
+        """Semantic search via ChromaDB embeddings.
+
+        If extra_queries is provided, embeds all queries and fuses their results
+        via RRF before returning — multi-query expansion for better recall.
+        """
+        all_queries = [query] + (extra_queries or [])
+        embeddings = [self.embedding_model.encode(q).tolist() for q in all_queries]
 
         where_filter = None
         if brand_filter:
             where_filter = {"filename": {"$contains": brand_filter.lower()}}
 
-        results = self.collection.query(
-            query_embeddings=[query_embedding],
-            n_results=top_k,
-            where=where_filter,
-            include=["documents", "metadatas", "distances"],
-        )
+        # Single-query fast path
+        if len(embeddings) == 1:
+            results = self.collection.query(
+                query_embeddings=embeddings,
+                n_results=top_k,
+                where=where_filter,
+                include=["documents", "metadatas", "distances"],
+            )
+            return [
+                {
+                    "id": results["ids"][0][i],
+                    "document": results["documents"][0][i],
+                    "metadata": results["metadatas"][0][i],
+                    "score": 1 - results["distances"][0][i],
+                    "method": "vector",
+                }
+                for i in range(len(results["documents"][0]))
+            ]
 
+        # Multi-query: retrieve per-query, fuse with RRF
+        rrf_scores: Dict[str, Dict] = {}
+        rrf_k = 60
+        for emb in embeddings:
+            res = self.collection.query(
+                query_embeddings=[emb],
+                n_results=top_k,
+                where=where_filter,
+                include=["documents", "metadatas", "distances"],
+            )
+            for rank, (doc_id, doc, meta, dist) in enumerate(zip(
+                res["ids"][0], res["documents"][0], res["metadatas"][0], res["distances"][0]
+            ), start=1):
+                if doc_id not in rrf_scores:
+                    rrf_scores[doc_id] = {"score": 0.0, "document": doc, "metadata": meta,
+                                          "best_sim": 0.0}
+                rrf_scores[doc_id]["score"] += 1.0 / (rrf_k + rank)
+                sim = 1 - dist
+                if sim > rrf_scores[doc_id]["best_sim"]:
+                    rrf_scores[doc_id]["best_sim"] = sim
+
+        fused = sorted(rrf_scores.items(), key=lambda x: x[1]["score"], reverse=True)[:top_k]
         return [
             {
-                "id": results["ids"][0][i],
-                "document": results["documents"][0][i],
-                "metadata": results["metadatas"][0][i],
-                "score": 1 - results["distances"][0][i],
-                "method": "vector",
+                "id": doc_id,
+                "document": data["document"],
+                "metadata": data["metadata"],
+                "score": data["best_sim"],
+                "method": "vector_multi",
             }
-            for i in range(len(results["documents"][0]))
+            for doc_id, data in fused
         ]
 
     def bm25_search(self, query: str, top_k: int = RETRIEVAL_CANDIDATE_K) -> List[Dict]:
@@ -147,6 +245,7 @@ class HybridRetriever:
     ) -> List[Dict]:
         """
         Run vector + BM25 search, merge with RRF, optionally rerank with cross-encoder.
+        Uses multi-query expansion on the vector side for improved recall.
         Pass a loaded ContextualReranker to reranker to enable reranking.
         """
         if self.bm25 is None or brand_filter:
@@ -155,7 +254,10 @@ class HybridRetriever:
         if not self.all_documents:
             return []
 
-        vector_results = self.vector_search(query, top_k=RETRIEVAL_CANDIDATE_K, brand_filter=brand_filter)
+        expanded = _expand_query(query)
+        extra = expanded[1:] if len(expanded) > 1 else None
+        vector_results = self.vector_search(query, top_k=RETRIEVAL_CANDIDATE_K,
+                                            brand_filter=brand_filter, extra_queries=extra)
         bm25_results = self.bm25_search(query, top_k=RETRIEVAL_CANDIDATE_K)
         candidates = self.reciprocal_rank_fusion(vector_results, bm25_results)
 
@@ -179,29 +281,19 @@ class HybridRetriever:
         if not self.all_documents:
             return {"results": [], "timings": {"embed_ms": 0, "search_ms": 0, "rerank_ms": 0}}
 
+        # Multi-query expansion: embed original + alternatives, fuse via RRF
         embed_start = _time.perf_counter()
-        query_embedding = self.embedding_model.encode(query).tolist()
+        expanded = _expand_query(query)
+        extra_queries = expanded[1:] if len(expanded) > 1 else None
         embed_ms = (_time.perf_counter() - embed_start) * 1000
 
         where_filter = {"filename": {"$contains": brand_filter.lower()}} if brand_filter else None
 
         search_start = _time.perf_counter()
-        vs_raw = self.collection.query(
-            query_embeddings=[query_embedding],
-            n_results=RETRIEVAL_CANDIDATE_K,
-            where=where_filter,
-            include=["documents", "metadatas", "distances"],
+        vector_results = self.vector_search(
+            query, top_k=RETRIEVAL_CANDIDATE_K,
+            brand_filter=brand_filter, extra_queries=extra_queries
         )
-        vector_results = [
-            {
-                "id": vs_raw["ids"][0][i],
-                "document": vs_raw["documents"][0][i],
-                "metadata": vs_raw["metadatas"][0][i],
-                "score": 1 - vs_raw["distances"][0][i],
-                "method": "vector",
-            }
-            for i in range(len(vs_raw["documents"][0]))
-        ]
         bm25_results = self.bm25_search(query, top_k=RETRIEVAL_CANDIDATE_K)
         search_ms = (_time.perf_counter() - search_start) * 1000
 

@@ -26,6 +26,13 @@ _UNIT_TESTS = {
     ),
 }
 
+# LMUnit system prompt as documented by Contextual AI
+_LMUNIT_SYSTEM = (
+    "You are a helpful assistant that evaluates the quality of RAG system responses. "
+    "Score the response on the given unit test from 1 (worst) to 5 (best). "
+    "Output only the integer score, nothing else."
+)
+
 
 def _lmunit_score(
     client: InferenceClient,
@@ -35,23 +42,26 @@ def _lmunit_score(
     unit_test: str,
 ) -> float:
     """
-    Call LMUnit for a single unit test.  Returns a score in [1, 5]; normalised
-    to [0, 1] before returning so downstream code stays on the same scale.
+    Call LMUnit for a single unit test via HF chat_completion API.
+    Returns a score normalised to [0, 1].
     """
-    content = (
+    user_content = (
         f"Query: {question}\n\n"
-        f"Context:\n{context[:3000]}\n\n"
+        f"Context:\n{context[:2000]}\n\n"
         f"Response: {answer}\n\n"
-        f"Unit Test: {unit_test}"
+        f"Unit Test: {unit_test}\n\n"
+        f"Score (1-5):"
     )
-    result = client.text_generation(
-        prompt=content,
+    response = client.chat_completion(
         model=LMUNIT_MODEL,
-        max_new_tokens=10,
+        messages=[
+            {"role": "system", "content": _LMUNIT_SYSTEM},
+            {"role": "user", "content": user_content},
+        ],
+        max_tokens=5,
         temperature=0.0,
     )
-    # LMUnit outputs a digit 1-5 as its first token
-    raw = str(result).strip()
+    raw = response.choices[0].message.content.strip()
     digit = next((c for c in raw if c.isdigit()), None)
     if digit is None:
         return 0.0
@@ -74,12 +84,12 @@ def judge_generation(
     client = InferenceClient(token=hf_token)
 
     scores: Dict[str, float] = {}
-    try:
-        for dimension, unit_test in _UNIT_TESTS.items():
+    for dimension, unit_test in _UNIT_TESTS.items():
+        try:
             scores[dimension] = _lmunit_score(client, question, context, answer, unit_test)
-    except Exception as e:
-        print(f"    LMUnit scoring error: {e}")
-        return {"faithfulness": 0.0, "relevance": 0.0, "completeness": 0.0, "overall": 0.0}
+        except Exception as e:
+            print(f"    LMUnit [{dimension}] error: {type(e).__name__}: {e}")
+            scores[dimension] = 0.0
 
     overall = round(sum(scores.values()) / len(scores), 4)
     scores["overall"] = overall

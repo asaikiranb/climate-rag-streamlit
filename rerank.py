@@ -108,31 +108,40 @@ class ContextualRerankerAPI:
         self.client = InferenceClient(token=hf_token)
 
     def score(self, query: str, documents: List[str], instruction: str = DEFAULT_INSTRUCTION) -> List[float]:
-        """Return a relevance score for each document via the HF Inference API."""
+        """Return a relevance score for each document via the HF Inference API.
+
+        Uses chat_completion with an explicit scoring prompt so the model
+        returns a numeric relevance judgment (1-5) rather than free text.
+        Falls back to 0.0 per-document on error, logging the actual exception.
+        """
         instruction_suffix = f" {instruction}" if instruction else ""
+        _logged_error = False  # log only the first error per batch to avoid spam
 
         scores = []
         for doc in documents:
-            prompt = (
-                f"Check whether a given document contains information helpful to answer the query.\n"
-                f"<Document> {doc}\n<Query> {query}{instruction_suffix} ??"
+            user_msg = (
+                f"Score how relevant this document is for answering the query.\n"
+                f"Query: {query}{instruction_suffix}\n"
+                f"Document: {doc[:1500]}\n\n"
+                f"Output only an integer from 1 (not relevant) to 5 (highly relevant)."
             )
-            # text_generation returns the generated token(s); we ask for 1 token
-            # and parse the leading digit as the relevance signal (0–9 scale from
-            # the model's first generated token), then normalise to a float score.
             try:
-                result = self.client.text_generation(
-                    prompt=prompt,
+                response = self.client.chat_completion(
                     model=self.model_id,
-                    max_new_tokens=1,
+                    messages=[
+                        {"role": "system", "content": "You are a relevance scoring assistant. Output only an integer 1-5."},
+                        {"role": "user", "content": user_msg},
+                    ],
+                    max_tokens=3,
                     temperature=0.0,
                 )
-                raw = str(result).strip()
-                # The API returns the generated text; take the first character as score.
-                # Digits map directly; non-digit fallback to 0.
+                raw = response.choices[0].message.content.strip()
                 digit = next((c for c in raw if c.isdigit()), None)
-                score = float(digit) if digit is not None else 0.0
-            except Exception:
+                score = float(digit) if digit is not None else 2.5  # neutral fallback
+            except Exception as e:
+                if not _logged_error:
+                    print(f"    [ContextualRerankerAPI] error (suppressing further): {type(e).__name__}: {e}")
+                    _logged_error = True
                 score = 0.0
             scores.append(score)
 

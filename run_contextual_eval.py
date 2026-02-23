@@ -48,12 +48,20 @@ K_VALUES = [1, 3, 5]
 
 OLLAMA_BASE_URL = "http://localhost:11434"
 OLLAMA_MODEL = "llama3.2:latest"
-GROQ_MODEL = "llama-3.3-70b-versatile"
+GROQ_MODEL = "llama-3.1-8b-instant"  # 8B: ~8x fewer tokens than 70B, well within free TPD
+
+# Max context chars passed to the generator — keeps each Groq request ≤ ~800 tokens
+CONTEXT_CHAR_LIMIT = 3000
+
+
+def _truncate_context(context: str) -> str:
+    """Truncate context to keep Groq token usage manageable."""
+    return context[:CONTEXT_CHAR_LIMIT]
 
 
 def generate_answer_ollama(query: str, context: str) -> str:
     """Generate answer using local Ollama (used when no GROQ_API_KEY is set)."""
-    prompt = SYSTEM_PROMPT.format(context=context, query=query)
+    prompt = SYSTEM_PROMPT.format(context=_truncate_context(context), query=query)
     response = requests.post(
         f"{OLLAMA_BASE_URL}/api/generate",
         json={
@@ -77,7 +85,7 @@ def generate_answer_groq(query: str, context: str) -> str:
     """Generate answer via Groq API (used in CI where Ollama on CPU is too slow)."""
     from groq import Groq
     client = Groq(api_key=os.environ["GROQ_API_KEY"])
-    prompt = SYSTEM_PROMPT.format(context=context, query=query)
+    prompt = SYSTEM_PROMPT.format(context=_truncate_context(context), query=query)
     completion = client.chat.completions.create(
         model=GROQ_MODEL,
         messages=[
@@ -176,7 +184,7 @@ def _write_results(
             "top_k": top_k,
             "retrieval_only": retrieval_only,
             "reranker": "ContextualAI/ctxl-rerank-v2-instruct-multilingual-1b" if use_reranker else "none",
-            "answer_model": f"groq/{GROQ_MODEL}" if os.environ.get("GROQ_API_KEY") else f"ollama/{OLLAMA_MODEL}",
+            "answer_model": f"groq/{GROQ_MODEL} (ctx:{CONTEXT_CHAR_LIMIT}chars)" if os.environ.get("GROQ_API_KEY") else f"ollama/{OLLAMA_MODEL}",
             "judge_model": LMUNIT_MODEL,
             "total_questions": total,
         },
