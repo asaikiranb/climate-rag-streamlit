@@ -41,31 +41,38 @@ class ContextualReranker:
         self.model.eval()
 
     def score(self, query: str, documents: List[str], instruction: str = DEFAULT_INSTRUCTION) -> List[float]:
-        """Return a relevance score for each document (higher = more relevant)."""
+        """Return a relevance score for each document (higher = more relevant).
+
+        Documents are scored one at a time to avoid the large padded-batch
+        memory and compute overhead that occurs when batching many long
+        climate-document chunks together on CPU.
+        """
         if instruction:
             instruction_suffix = f" {instruction}"
         else:
             instruction_suffix = ""
 
-        prompts = [
-            f"Check whether a given document contains information helpful to answer the query.\n"
-            f"<Document> {doc}\n<Query> {query}{instruction_suffix} ??"
-            for doc in documents
-        ]
+        scores = []
+        for doc in documents:
+            prompt = (
+                f"Check whether a given document contains information helpful to answer the query.\n"
+                f"<Document> {doc}\n<Query> {query}{instruction_suffix} ??"
+            )
+            enc = self.tokenizer(
+                prompt, return_tensors="pt", truncation=True, max_length=2048
+            )
+            input_ids = enc["input_ids"].to(self.device)
+            attention_mask = enc["attention_mask"].to(self.device)
 
-        enc = self.tokenizer(
-            prompts, return_tensors="pt", padding=True, truncation=True, max_length=4096
-        )
-        input_ids = enc["input_ids"].to(self.device)
-        attention_mask = enc["attention_mask"].to(self.device)
+            with torch.no_grad():
+                out = self.model(input_ids=input_ids, attention_mask=attention_mask)
 
-        with torch.no_grad():
-            out = self.model(input_ids=input_ids, attention_mask=attention_mask)
+            # Score = logit of the first token in the vocabulary at the last position,
+            # interpreted as a bfloat16 bit-pattern (as per Contextual AI's spec).
+            next_logits = out.logits[:, -1, :]
+            score = next_logits[0, 0].to(torch.bfloat16).float().item()
+            scores.append(score)
 
-        # Score = logit of the first token in the vocabulary at the last position,
-        # interpreted as a bfloat16 bit-pattern (as per Contextual AI's spec).
-        next_logits = out.logits[:, -1, :]
-        scores = next_logits[:, 0].to(torch.bfloat16).float().tolist()
         return scores
 
 
