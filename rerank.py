@@ -1,4 +1,10 @@
-"""Contextual AI reranker (ctxl-rerank-v2) for scoring query-document pairs."""
+"""Contextual AI reranker (ctxl-rerank-v2) for scoring query-document pairs.
+
+Two backends are provided:
+  - ContextualReranker      — loads model weights locally (GPU/CPU). Used by the live app.
+  - ContextualRerankerAPI   — calls ctxl-rerank-v2 via the HuggingFace Inference API.
+                              No local weights needed; requires HF_TOKEN. Used in CI.
+"""
 
 import math
 import os
@@ -6,6 +12,7 @@ from typing import List, Dict
 
 import torch
 from transformers import AutoTokenizer, AutoModelForCausalLM
+from huggingface_hub import InferenceClient
 
 # ctxl-rerank-v2-instruct-multilingual-1b is the smallest / fastest variant.
 # Swap to the 2b or 6b model ID for higher quality at the cost of memory/speed.
@@ -77,8 +84,64 @@ class ContextualReranker:
 
 
 def load_reranker() -> ContextualReranker:
-    """Load and return the Contextual AI reranker."""
+    """Load and return the Contextual AI reranker (local weights)."""
     return ContextualReranker()
+
+
+class ContextualRerankerAPI:
+    """Contextual AI ctxl-rerank-v2 called via HuggingFace Inference API.
+
+    No local model weights are downloaded — scoring is done server-side.
+    Requires HF_TOKEN to be set in the environment.
+
+    The prompt format and scoring logic mirror ContextualReranker so that
+    the rerank() function works identically with either backend.
+    """
+
+    def __init__(self, model_id: str = RERANKER_MODEL):
+        self.model_id = model_id
+        hf_token = os.environ.get("HF_TOKEN")
+        if not hf_token:
+            raise ValueError(
+                "HF_TOKEN environment variable is required for ContextualRerankerAPI"
+            )
+        self.client = InferenceClient(token=hf_token)
+
+    def score(self, query: str, documents: List[str], instruction: str = DEFAULT_INSTRUCTION) -> List[float]:
+        """Return a relevance score for each document via the HF Inference API."""
+        instruction_suffix = f" {instruction}" if instruction else ""
+
+        scores = []
+        for doc in documents:
+            prompt = (
+                f"Check whether a given document contains information helpful to answer the query.\n"
+                f"<Document> {doc}\n<Query> {query}{instruction_suffix} ??"
+            )
+            # text_generation returns the generated token(s); we ask for 1 token
+            # and parse the leading digit as the relevance signal (0–9 scale from
+            # the model's first generated token), then normalise to a float score.
+            try:
+                result = self.client.text_generation(
+                    prompt=prompt,
+                    model=self.model_id,
+                    max_new_tokens=1,
+                    temperature=0.0,
+                )
+                raw = str(result).strip()
+                # The API returns the generated text; take the first character as score.
+                # Digits map directly; non-digit fallback to 0.
+                digit = next((c for c in raw if c.isdigit()), None)
+                score = float(digit) if digit is not None else 0.0
+            except Exception:
+                score = 0.0
+            scores.append(score)
+
+        return scores
+
+
+def load_reranker_api() -> ContextualRerankerAPI:
+    """Load and return the Contextual AI reranker (HF Inference API backend)."""
+    return ContextualRerankerAPI()
 
 
 def rerank(

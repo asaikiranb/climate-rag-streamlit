@@ -40,10 +40,11 @@ jobs:
           echo "Ollama ready"
 
       # ---- Run Eval ----
-      # HF_TOKEN is used for calling the LMUnit judge via HF Inference API.
-      # --no-reranker: the Contextual AI ctxl-rerank-v2 generative reranker is too
-      # slow on a CPU-only runner (~30s/doc × 40 candidates × 126 questions ≈ 15h).
-      # The reranker is still used in the live app (RETRIEVAL_CANDIDATE_K=40 in config.py).
+      # HF_TOKEN is used for:
+      #   1. Calling ctxl-rerank-v2 via HF Inference API (no local weights downloaded)
+      #   2. Calling the LMUnit judge via HF Inference API
+      # Because HF_TOKEN is set, run_contextual_eval.py automatically selects the
+      # ContextualRerankerAPI backend, keeping CI within memory/time limits.
       - name: Run comprehensive evaluation
         env:
           CHROMA_COLLECTION_NAME: hvac_documents
@@ -51,7 +52,6 @@ jobs:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
           python run_contextual_eval.py \
-            --no-reranker \
             --output eval_results_comprehensive.json \
             2>&1 | tee eval_output.log
           echo "Eval complete"

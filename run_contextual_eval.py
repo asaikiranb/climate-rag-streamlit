@@ -36,7 +36,7 @@ from datetime import datetime
 from typing import List, Dict
 
 from retrieve import HybridRetriever
-from rerank import load_reranker
+from rerank import load_reranker, load_reranker_api
 from llm import build_context
 from config import SYSTEM_PROMPT, SYSTEM_MESSAGE, LLM_TEMPERATURE, LLM_MAX_TOKENS, LLM_TOP_P
 from eval.metrics import citation_validity, citation_coverage, source_grounding
@@ -180,12 +180,20 @@ def run_eval(
     print("Loading retriever...")
     retriever = HybridRetriever()
 
-    # Load Contextual AI reranker
+    # Load Contextual AI reranker.
+    # When HF_TOKEN is available (e.g. in CI), use the HF Inference API backend so
+    # no model weights are downloaded locally — avoids OOM and timeout on CPU runners.
+    # Locally (no HF_TOKEN), load the 1B weights directly.
     reranker = None
     if use_reranker:
-        print("Loading Contextual AI reranker...")
-        reranker = load_reranker()
-        print("Reranker ready (ContextualAI/ctxl-rerank-v2-instruct-multilingual-1b)")
+        if os.environ.get("HF_TOKEN"):
+            print("Loading Contextual AI reranker via HF Inference API...")
+            reranker = load_reranker_api()
+            print("Reranker ready (ContextualAI/ctxl-rerank-v2 — HF Inference API)")
+        else:
+            print("Loading Contextual AI reranker (local weights)...")
+            reranker = load_reranker()
+            print("Reranker ready (ContextualAI/ctxl-rerank-v2-instruct-multilingual-1b — local)")
     else:
         print("Reranker disabled")
 
