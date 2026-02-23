@@ -27,7 +27,7 @@ jobs:
           pip install --upgrade pip
           pip install -r requirements.txt
 
-      # ---- Ollama ----
+      # ---- Ollama (answer generation) ----
       - name: Install Ollama
         run: |
           curl -fsSL https://ollama.com/install.sh | sh
@@ -40,6 +40,9 @@ jobs:
           echo "Ollama ready"
 
       # ---- Run Eval ----
+      # HF_TOKEN is used for:
+      #   1. Downloading the Contextual AI reranker weights (ctxl-rerank-v2)
+      #   2. Calling the LMUnit judge via HF Inference API
       - name: Run comprehensive evaluation
         env:
           CHROMA_COLLECTION_NAME: hvac_documents

@@ -1,16 +1,16 @@
 """
-Comprehensive RAG evaluation with cross-encoder reranking.
+Comprehensive RAG evaluation with Contextual AI reranking.
 
 Metrics computed:
   - Retrieval: recall@k, MRR@k, NDCG@k for k=1,3,5
-  - Generation: faithfulness, relevance, completeness (LLM-judged via Ollama)
+  - Generation: faithfulness, relevance, completeness (LMUnit-judged via HF Inference API)
   - Citation: validity, coverage, source grounding
   - Latency: embed_ms, search_ms, rerank_ms, generate_ms (mean/p50/p95/min/max)
   - Breakdown by difficulty (Easy/Medium/Hard)
 
 Usage:
     python run_contextual_eval.py                        # full run with reranker
-    python run_contextual_eval.py --no-reranker          # skip cross-encoder
+    python run_contextual_eval.py --no-reranker          # skip reranker
     python run_contextual_eval.py --retrieval-only       # skip LLM, just test retrieval
     python run_contextual_eval.py --output results.json  # custom output path
 """
@@ -41,7 +41,7 @@ from llm import build_context
 from config import SYSTEM_PROMPT, SYSTEM_MESSAGE, LLM_TEMPERATURE, LLM_MAX_TOKENS, LLM_TOP_P
 from eval.metrics import citation_validity, citation_coverage, source_grounding
 from eval.retrieval_metrics import compute_retrieval_metrics_at_k
-from eval.generation_metrics import judge_generation
+from eval.generation_metrics import judge_generation, LMUNIT_MODEL
 
 
 K_VALUES = [1, 3, 5]
@@ -149,9 +149,9 @@ def _write_results(
         "config": {
             "top_k": top_k,
             "retrieval_only": retrieval_only,
-            "reranker": "cross-encoder/ms-marco-MiniLM-L-6-v2" if use_reranker else "none",
-            "answer_model": "ollama/llama3.2",
-            "judge_model": "ollama/llama3.2",
+            "reranker": "ContextualAI/ctxl-rerank-v2-instruct-multilingual-1b" if use_reranker else "none",
+            "answer_model": f"ollama/{OLLAMA_MODEL}",
+            "judge_model": LMUNIT_MODEL,
             "total_questions": total,
         },
         "retrieval_metrics": agg_retrieval,
@@ -180,18 +180,19 @@ def run_eval(
     print("Loading retriever...")
     retriever = HybridRetriever()
 
-    # Load cross-encoder reranker
+    # Load Contextual AI reranker
     reranker = None
     if use_reranker:
-        print("Loading cross-encoder reranker...")
+        print("Loading Contextual AI reranker...")
         reranker = load_reranker()
-        print("Reranker ready (ms-marco-MiniLM-L-6-v2)")
+        print("Reranker ready (ContextualAI/ctxl-rerank-v2-instruct-multilingual-1b)")
     else:
         print("Reranker disabled")
 
-    # LLM
+    # LLM + judge
     if not retrieval_only:
-        print("Using local Ollama (llama3.2) for answer generation + scoring")
+        print(f"Using local Ollama ({OLLAMA_MODEL}) for answer generation")
+        print(f"Using Contextual AI LMUnit ({LMUNIT_MODEL}) for generation scoring")
 
     # Accumulators
     results_log = []
@@ -260,7 +261,7 @@ def run_eval(
                 citation_scores["coverage"].append(cc["score"])
                 citation_scores["grounding"].append(sg["score"])
 
-                # LLM-judged generation quality (via Ollama)
+                # LLM-judged generation quality (via LMUnit / HF Inference API)
                 gen_metrics = judge_generation(
                     question=question, context=context, answer=answer,
                 )
@@ -317,7 +318,7 @@ def run_eval(
     print("=" * 70)
     print(f"\n  Questions evaluated: {saved['questions_completed']}/{total}")
     print(f"  Top-K: {top_k}")
-    print(f"  Reranker: {'cross-encoder/ms-marco-MiniLM-L-6-v2' if use_reranker else 'disabled'}")
+    print(f"  Reranker: {'ContextualAI/ctxl-rerank-v2-instruct-multilingual-1b' if use_reranker else 'disabled'}")
 
     print("\n  RETRIEVAL METRICS:")
     for k in K_VALUES:
@@ -356,13 +357,13 @@ if __name__ == "__main__":
     parser.add_argument("--output", default="eval_results_comprehensive.json")
     parser.add_argument("--top-k", type=int, default=5)
     parser.add_argument("--retrieval-only", action="store_true")
-    parser.add_argument("--no-reranker", action="store_true", help="Disable cross-encoder reranking")
+    parser.add_argument("--no-reranker", action="store_true", help="Disable Contextual AI reranking")
     args = parser.parse_args()
 
     print("=" * 70)
     print("  RAG Contextual Evaluation — Comprehensive Metrics")
     if not args.no_reranker:
-        print("  (with cross-encoder reranking)")
+        print("  (with Contextual AI reranking)")
     print("=" * 70)
 
     run_eval(

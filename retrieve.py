@@ -147,7 +147,7 @@ class HybridRetriever:
     ) -> List[Dict]:
         """
         Run vector + BM25 search, merge with RRF, optionally rerank with cross-encoder.
-        Pass a loaded CrossEncoder to reranker to enable reranking.
+        Pass a loaded ContextualReranker to reranker to enable reranking.
         """
         if self.bm25 is None or brand_filter:
             self._load_bm25_index(brand_filter)
