@@ -24,7 +24,9 @@ class ContextualReranker:
     def __init__(self, model_path: str = RERANKER_MODEL):
         hf_token = os.environ.get("HF_TOKEN")
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
-        dtype = torch.bfloat16 if torch.cuda.is_available() else torch.float32
+        # Use float16 on CPU to halve memory (~2 GB vs ~4 GB for the 1B model),
+        # keeping total CI runner usage well under the 7 GB limit.
+        dtype = torch.bfloat16 if torch.cuda.is_available() else torch.float16
 
         self.tokenizer = AutoTokenizer.from_pretrained(
             model_path, use_fast=True, token=hf_token
