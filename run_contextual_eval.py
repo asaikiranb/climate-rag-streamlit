@@ -48,10 +48,11 @@ K_VALUES = [1, 3, 5]
 
 OLLAMA_BASE_URL = "http://localhost:11434"
 OLLAMA_MODEL = "llama3.2:latest"
+GROQ_MODEL = "llama-3.3-70b-versatile"
 
 
 def generate_answer_ollama(query: str, context: str) -> str:
-    """Generate answer using local Ollama."""
+    """Generate answer using local Ollama (used when no GROQ_API_KEY is set)."""
     prompt = SYSTEM_PROMPT.format(context=context, query=query)
     response = requests.post(
         f"{OLLAMA_BASE_URL}/api/generate",
@@ -70,6 +71,31 @@ def generate_answer_ollama(query: str, context: str) -> str:
     )
     response.raise_for_status()
     return response.json().get("response", "").strip()
+
+
+def generate_answer_groq(query: str, context: str) -> str:
+    """Generate answer via Groq API (used in CI where Ollama on CPU is too slow)."""
+    from groq import Groq
+    client = Groq(api_key=os.environ["GROQ_API_KEY"])
+    prompt = SYSTEM_PROMPT.format(context=context, query=query)
+    completion = client.chat.completions.create(
+        model=GROQ_MODEL,
+        messages=[
+            {"role": "system", "content": SYSTEM_MESSAGE},
+            {"role": "user", "content": prompt},
+        ],
+        temperature=LLM_TEMPERATURE,
+        max_tokens=LLM_MAX_TOKENS,
+        top_p=LLM_TOP_P,
+    )
+    return completion.choices[0].message.content.strip()
+
+
+def generate_answer(query: str, context: str) -> str:
+    """Route to Groq (CI) or Ollama (local) based on available env vars."""
+    if os.environ.get("GROQ_API_KEY"):
+        return generate_answer_groq(query, context)
+    return generate_answer_ollama(query, context)
 
 
 def load_eval_dataset(path: str) -> List[Dict]:
@@ -150,7 +176,7 @@ def _write_results(
             "top_k": top_k,
             "retrieval_only": retrieval_only,
             "reranker": "ContextualAI/ctxl-rerank-v2-instruct-multilingual-1b" if use_reranker else "none",
-            "answer_model": f"ollama/{OLLAMA_MODEL}",
+            "answer_model": f"groq/{GROQ_MODEL}" if os.environ.get("GROQ_API_KEY") else f"ollama/{OLLAMA_MODEL}",
             "judge_model": LMUNIT_MODEL,
             "total_questions": total,
         },
@@ -199,7 +225,10 @@ def run_eval(
 
     # LLM + judge
     if not retrieval_only:
-        print(f"Using local Ollama ({OLLAMA_MODEL}) for answer generation")
+        if os.environ.get("GROQ_API_KEY"):
+            print(f"Using Groq API ({GROQ_MODEL}) for answer generation")
+        else:
+            print(f"Using local Ollama ({OLLAMA_MODEL}) for answer generation")
         print(f"Using Contextual AI LMUnit ({LMUNIT_MODEL}) for generation scoring")
 
     # Accumulators
@@ -254,9 +283,9 @@ def run_eval(
             try:
                 context = build_context(search_results)
 
-                # Generate answer via Ollama
+                # Generate answer (Groq in CI, Ollama locally)
                 gen_start = time.perf_counter()
-                answer = generate_answer_ollama(question, context)
+                answer = generate_answer(question, context)
                 gen_ms = (time.perf_counter() - gen_start) * 1000
                 latency_generate.append(round(gen_ms, 2))
 
