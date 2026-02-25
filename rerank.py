@@ -189,6 +189,16 @@ def rerank(
     norm_rrf = [v / max_rrf for v in rrf_vals]
 
     for result, ns, nr in zip(results, norm_scores, norm_rrf):
-        result["rerank_score"] = (1 - rrf_weight) * ns + rrf_weight * nr
+        # Asymmetric RRF Weighting:
+        # If the reranker is highly confident (ns is close to 1.0), we want to trust it almost entirely
+        # and ignore the RRF score. This prevents RRF from penalizing a true positive that happened to miss BM25.
+        # We scale confidence linearly from 0 at ns=0.5 to 1 at ns=1.0.
+        confidence = max(0.0, min(1.0, (ns - 0.5) * 2))
+        
+        # When confidence is high, dynamic_rrf approaches 0.0 (100% reranker).
+        # When confidence is low, dynamic_rrf approaches the baseline rrf_weight (e.g., 0.2).
+        dynamic_rrf = rrf_weight * (1.0 - confidence)
+        
+        result["rerank_score"] = (1 - dynamic_rrf) * ns + dynamic_rrf * nr
 
     return sorted(results, key=lambda x: x["rerank_score"], reverse=True)

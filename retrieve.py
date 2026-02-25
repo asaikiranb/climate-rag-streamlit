@@ -29,6 +29,87 @@ import nltk
 nltk.download("punkt_tab", quiet=True)
 from nltk.tokenize import word_tokenize
 
+import json
+
+def _analyze_query(query: str) -> dict:
+    """
+    LLM Router: Analyzes the query to extract metadata filters and generate a dynamic reranker instruction.
+    Uses Groq (fastest) falling back to Ollama.
+    """
+    from config import DEFAULT_INSTRUCTION
+    
+    default_result = {
+        "brand_filter": None,
+        "instruction": DEFAULT_INSTRUCTION
+    }
+    
+    prompt = f"""Analyze the following user query for a HVAC/climate control RAG system.
+1. Does the query explicitly mention a specific brand (e.g., Daikin, Panasonic, Lloyd, Voltas, Samsung, LG)? If so, extract it.
+2. What is the primary intent? Is it looking for numerical specs, installation steps, troubleshooting, general concepts, or specific document references?
+3. Generate a dynamic reranker instruction (1-2 sentences) tailored to this intent to help the reranker pick the absolute best document. For example, if it's a spec query, tell the reranker to prioritize documents with precise numerical tables matching the query.
+
+Output ONLY a raw JSON object with no markdown formatting:
+{{
+  "brand_filter": "BrandName" | null,
+  "instruction": "dynamic instruction..."
+}}
+
+Query: {query}"""
+
+    raw_text = None
+    groq_key = os.environ.get("GROQ_API_KEY")
+    if groq_key:
+        try:
+            from groq import Groq
+            client = Groq(api_key=groq_key)
+            resp = client.chat.completions.create(
+                model="llama-3.1-8b-instant",
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.1,
+                max_tokens=200,
+            )
+            raw_text = resp.choices[0].message.content.strip()
+        except Exception:
+            pass
+
+    if raw_text is None:
+        try:
+            import requests
+            ollama_url = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
+            resp = requests.post(
+                f"{ollama_url}/api/generate",
+                json={
+                    "model": os.environ.get("OLLAMA_MODEL", "qwen2.5:3b"),
+                    "prompt": prompt,
+                    "stream": False,
+                    "options": {"temperature": 0.1, "num_predict": 200},
+                },
+                timeout=60,
+            )
+            if resp.status_code == 200:
+                raw_text = resp.json().get("response", "").strip()
+        except Exception:
+            pass
+
+    if raw_text:
+        # Cleanup markdown formatting if present
+        if raw_text.startswith("```json"):
+            raw_text = raw_text[7:]
+        if raw_text.startswith("```"):
+            raw_text = raw_text[3:]
+        if raw_text.endswith("```"):
+            raw_text = raw_text[:-3]
+        
+        try:
+            parsed = json.loads(raw_text.strip())
+            return {
+                "brand_filter": parsed.get("brand_filter"),
+                "instruction": parsed.get("instruction", default_result["instruction"])
+            }
+        except Exception:
+            pass
+
+    return default_result
 
 def _expand_query(query: str) -> List[str]:
     """
@@ -290,24 +371,35 @@ class HybridRetriever:
         """
         Run vector + BM25 search, merge with RRF, optionally rerank with cross-encoder.
         Uses multi-query expansion on the vector side for improved recall.
-        Pass a loaded ContextualReranker to reranker to enable reranking.
+        Uses LLM router for metadata pre-filtering and dynamic instructions.
         """
-        if self.bm25 is None or brand_filter:
-            self._load_bm25_index(brand_filter)
+        # 1. Query Analysis (LLM Router)
+        analysis = _analyze_query(query)
+        active_brand = brand_filter or analysis.get("brand_filter")
+        instruction = analysis.get("instruction")
+
+        if self.bm25 is None or active_brand:
+            self._load_bm25_index(active_brand)
 
         if not self.all_documents:
             return []
 
+        # 2. Query Expansion & Retrieval
         expanded = _expand_query(query)
         extra = expanded[1:] if len(expanded) > 1 else None
         vector_results = self.vector_search(query, top_k=RETRIEVAL_CANDIDATE_K,
-                                            brand_filter=brand_filter, extra_queries=extra)
+                                            brand_filter=active_brand, extra_queries=extra)
+        
+        # Pass active_brand to bm25 (already filtered in _load_bm25_index)
         bm25_results = self.bm25_search(query, top_k=RETRIEVAL_CANDIDATE_K)
+        
+        # 3. Reciprocal Rank Fusion
         candidates = self.reciprocal_rank_fusion(vector_results, bm25_results)
 
+        # 4. Cross-Encoder Reranking
         if reranker is not None:
             from rerank import rerank
-            candidates = rerank(query, candidates, reranker)
+            candidates = rerank(query, candidates, reranker, instruction=instruction)
 
         return candidates[:top_k]
 
