@@ -11,11 +11,52 @@ Requires:
 
 import os
 import json
+import subprocess
+import time
 import requests
 from typing import Dict
 
 OLLAMA_BASE_URL = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
 OLLAMA_JUDGE_MODEL = os.environ.get("OLLAMA_JUDGE_MODEL", "qwen2.5:3b")
+
+_ollama_started = False
+
+
+def _ensure_ollama_running():
+    """Lazily start Ollama if it's not already running.
+
+    In CI, Ollama is stopped after model pull to free RAM for bge-m3.
+    This function restarts it when the judge is first called (after
+    retrieval is done and embedding model memory can be reclaimed).
+    """
+    global _ollama_started
+    if _ollama_started:
+        return
+
+    try:
+        requests.get(f"{OLLAMA_BASE_URL}/api/tags", timeout=2)
+        _ollama_started = True
+        return
+    except Exception:
+        pass
+
+    print("    Starting Ollama server...")
+    subprocess.Popen(
+        ["ollama", "serve"],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    # Wait for it to be ready
+    for _ in range(30):
+        time.sleep(1)
+        try:
+            requests.get(f"{OLLAMA_BASE_URL}/api/tags", timeout=2)
+            _ollama_started = True
+            print("    Ollama server ready")
+            return
+        except Exception:
+            pass
+    print("    WARNING: Ollama server may not be ready")
 
 _JUDGE_PROMPTS = {
     "faithfulness": (
@@ -69,6 +110,7 @@ _JUDGE_PROMPTS = {
 
 def _call_ollama(prompt: str) -> str:
     """Send a prompt to Ollama and return the raw response text."""
+    _ensure_ollama_running()
     response = requests.post(
         f"{OLLAMA_BASE_URL}/api/generate",
         json={

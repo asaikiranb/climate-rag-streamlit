@@ -27,7 +27,11 @@ jobs:
           ollama serve &
           sleep 5
           ollama pull qwen2.5:3b
-          echo "Ollama ready with qwen2.5:3b"
+          # Stop Ollama to free RAM for bge-m3 embedding model loading (~2.3GB).
+          # The Ollama judge module will restart it lazily when needed for generation scoring.
+          pkill ollama || true
+          sleep 2
+          echo "Ollama installed, model cached, server stopped to save RAM"
 
       # ---- Python ----
       - name: Set up Python 3.11
