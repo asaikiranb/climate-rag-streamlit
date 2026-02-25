@@ -1,19 +1,34 @@
 import os
 import fitz  # PyMuPDF
-from sentence_transformers import SentenceTransformer
 import chromadb
 import tiktoken
 from dotenv import load_dotenv
 from typing import List, Dict
 import uuid
+import numpy as np
 
 load_dotenv()
 
 
 class PDFIngestion:
     def __init__(self):
-        self.embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
         self.tokenizer = tiktoken.get_encoding("cl100k_base")
+
+        # Embedding: BAAI/bge-m3 (1024-dim) via HF Inference API when HF_TOKEN is
+        # available; local SentenceTransformer fallback otherwise.
+        # MUST match the embedding model used in retrieve.py.
+        hf_token = os.environ.get("HF_TOKEN")
+        self.embedding_model_id = "BAAI/bge-m3"
+        if hf_token:
+            from huggingface_hub import InferenceClient
+            self._hf_client = InferenceClient(token=hf_token)
+            self._use_api_embedding = True
+            print(f"Embedding model: {self.embedding_model_id} via HF Inference API")
+        else:
+            from sentence_transformers import SentenceTransformer
+            self.embedding_model = SentenceTransformer(self.embedding_model_id)
+            self._use_api_embedding = False
+            print(f"Embedding model: {self.embedding_model_id} (local SentenceTransformer)")
 
         # Initialize local ChromaDB client
         chroma_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "chroma_db")
@@ -122,9 +137,16 @@ class PDFIngestion:
         ]
         ids = [str(uuid.uuid4()) for _ in range(len(texts))]
 
-
-        print("Generating embeddings...")
-        embeddings = self.embedding_model.encode(texts, show_progress_bar=True).tolist()
+        print(f"Generating embeddings with {self.embedding_model_id}...")
+        embeddings = []
+        for i, text in enumerate(texts):
+            if self._use_api_embedding:
+                emb = np.array(self._hf_client.feature_extraction(text, model=self.embedding_model_id)).tolist()
+            else:
+                emb = self.embedding_model.encode(text).tolist()
+            embeddings.append(emb)
+            if (i + 1) % 50 == 0 or (i + 1) == len(texts):
+                print(f"  Embedded {i + 1}/{len(texts)} chunks...")
 
 
         batch_size = 100
@@ -175,7 +197,7 @@ def main():
             return
 
 
-    ingestion.ingest_documents("./data")
+    ingestion.ingest_documents("./Eval Dataset")
 
 
     ingestion.get_collection_stats()

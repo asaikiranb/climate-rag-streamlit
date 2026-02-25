@@ -1,12 +1,15 @@
 """Hybrid retrieval: vector search + BM25 + RRF + optional cross-encoder reranking.
 
 Retrieval strategy:
-  1. Multi-query expansion — generate 2 alternative phrasings per query, embed all 3,
-     and fuse their vector results via RRF before merging with BM25. This significantly
-     improves recall for source-specific questions ("according to the HPMP poster...")
-     where a single embedding misses semantically-close-but-wrong documents.
-  2. Hybrid BM25 + vector RRF — keyword and semantic signals are complementary.
-  3. Optional reranking — Contextual AI ctxl-rerank-v2 for final ordering.
+  1. Multi-query expansion — generate 2 alternative phrasings per query via Groq LLM,
+     embed all 3, and fuse their vector results via RRF before merging with BM25. This
+     significantly improves recall for source-specific questions ("according to the HPMP
+     poster...") where a single embedding misses semantically-close-but-wrong documents.
+  2. Embedding: BAAI/bge-m3 (1024-dim, 8192-token context) via HF Inference API when
+     HF_TOKEN is available; local SentenceTransformer fallback otherwise.
+  3. Hybrid BM25 + vector RRF — keyword and semantic signals are complementary.
+  4. BM25 with NLTK word_tokenize for proper punctuation/compound-term handling.
+  5. Optional reranking — Contextual AI ctxl-rerank-v2 for final ordering.
 """
 
 import os
@@ -16,63 +19,72 @@ from typing import List, Dict, Optional
 import numpy as np
 from dotenv import load_dotenv
 from rank_bm25 import BM25Okapi
-from sentence_transformers import SentenceTransformer
 import chromadb
 
 from config import RETRIEVAL_TOP_K, RETRIEVAL_CANDIDATE_K
 
 load_dotenv()
 
+import nltk
+nltk.download("punkt_tab", quiet=True)
+from nltk.tokenize import word_tokenize
+
 
 def _expand_query(query: str) -> List[str]:
     """
     Generate alternative phrasings for a query to improve recall.
 
-    Uses lightweight rule-based expansion (no LLM needed — fast, deterministic,
-    zero API cost). Returns the original query plus 2 alternatives. The alternatives
-    strip source-attribution phrases ("according to X", "as described in Y") which
-    cause embedding models to anchor on the source name rather than the content.
+    Uses Groq (llama-3.1-8b-instant) when GROQ_API_KEY is set — LLM-based expansion
+    produces true semantic paraphrases with different vocabulary. Falls back to a single
+    query when no API key is available.
     """
-    import re
-    alternatives = [query]
+    groq_key = os.environ.get("GROQ_API_KEY")
+    if not groq_key:
+        return [query]
 
-    # 1. Strip source-attribution prefix: "According to X, what is Y?" → "What is Y?"
-    stripped = re.sub(
-        r"^(according to|as (described|stated|mentioned|shown|explained|presented) in|"
-        r"based on|per|from|in|as per)\s+[^,?]+[,?]\s*",
-        "",
-        query,
-        flags=re.IGNORECASE,
-    ).strip()
-    # Only add if meaningfully different (not just punctuation difference)
-    if stripped and stripped.lower().rstrip("?. ") != query.lower().rstrip("?. ") and len(stripped) > 10:
-        alternatives.append(stripped)
-
-    # 2. Convert question form to declarative keyword form for better BM25/vector match
-    # "What are the X?" → "X" / "How does X work?" → "X mechanism"
-    declarative = re.sub(r"^(what (is|are|were|was)|how (does|do|did|is)|why (is|does|did)|"
-                         r"when (did|was|is)|which|who|where)\s+", "", query, flags=re.IGNORECASE).strip()
-    declarative = re.sub(r"\?$", "", declarative).strip()
-    if declarative and declarative != query and declarative not in alternatives and len(declarative) > 10:
-        alternatives.append(declarative)
-
-    # Deduplicate while preserving order
-    seen = set()
-    deduped = []
-    for a in alternatives:
-        key = a.lower().rstrip("?. ")
-        if key not in seen:
-            seen.add(key)
-            deduped.append(a)
-
-    return deduped[:3]  # original + up to 2 alternatives
+    from groq import Groq
+    client = Groq(api_key=groq_key)
+    prompt = (
+        "Generate 2 alternative phrasings of this question for document retrieval. "
+        "Focus on semantic diversity — different vocabulary, same intent. "
+        "Output only the 2 alternatives, one per line, no numbering, no explanations.\n\n"
+        f"Question: {query}"
+    )
+    try:
+        resp = client.chat.completions.create(
+            model="llama-3.1-8b-instant",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.3,
+            max_tokens=120,
+        )
+        lines = [l.strip() for l in resp.choices[0].message.content.strip().split("\n") if l.strip()]
+        seen = {query.lower().rstrip("?. ")}
+        deduped = [query]
+        for a in lines[:2]:
+            key = a.lower().rstrip("?. ")
+            if key not in seen and len(a) > 10:
+                seen.add(key)
+                deduped.append(a)
+        return deduped[:3]
+    except Exception:
+        return [query]  # graceful fallback — never let expansion break retrieval
 
 
 class HybridRetriever:
     def __init__(self):
-        self.embedding_model = SentenceTransformer(
-            "all-MiniLM-L6-v2", token=os.environ.get("HF_TOKEN")
-        )
+        self.hf_token = os.environ.get("HF_TOKEN")
+        self.embedding_model_id = "BAAI/bge-m3"
+
+        if self.hf_token:
+            from huggingface_hub import InferenceClient
+            self._hf_client = InferenceClient(token=self.hf_token)
+            self._use_api_embedding = True
+            print(f"Embedding: {self.embedding_model_id} via HF Inference API")
+        else:
+            from sentence_transformers import SentenceTransformer
+            self.embedding_model = SentenceTransformer(self.embedding_model_id, token=None)
+            self._use_api_embedding = False
+            print(f"Embedding: {self.embedding_model_id} (local SentenceTransformer)")
 
         chroma_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "chroma_db")
         self.chroma_client = chromadb.PersistentClient(path=chroma_path)
@@ -88,6 +100,15 @@ class HybridRetriever:
         self.all_documents = None
         self.all_metadatas = None
         self.all_ids = None
+
+    def _embed(self, texts: List[str]) -> List[List[float]]:
+        """Embed a list of texts using bge-m3 (API or local)."""
+        if self._use_api_embedding:
+            return [
+                np.array(self._hf_client.feature_extraction(t, model=self.embedding_model_id)).tolist()
+                for t in texts
+            ]
+        return self.embedding_model.encode(texts).tolist()
 
     def _load_bm25_index(self, brand_filter: str = None):
         """Build BM25 index from ChromaDB documents, with optional filename filter."""
@@ -115,7 +136,7 @@ class HybridRetriever:
         self.all_metadatas = metadatas
         self.all_ids = ids
 
-        tokenized = [doc.lower().split() for doc in documents]
+        tokenized = [word_tokenize(doc.lower()) for doc in documents]
         self.bm25 = BM25Okapi(tokenized)
         print(f"BM25 index built with {len(documents)} documents")
 
@@ -132,7 +153,7 @@ class HybridRetriever:
         via RRF before returning — multi-query expansion for better recall.
         """
         all_queries = [query] + (extra_queries or [])
-        embeddings = [self.embedding_model.encode(q).tolist() for q in all_queries]
+        embeddings = self._embed(all_queries)
 
         where_filter = None
         if brand_filter:
@@ -195,7 +216,7 @@ class HybridRetriever:
         if not self.bm25 or not self.all_documents:
             raise Exception("BM25 index not loaded.")
 
-        scores = self.bm25.get_scores(query.lower().split())
+        scores = self.bm25.get_scores(word_tokenize(query.lower()))
         top_indices = np.argsort(scores)[::-1][:top_k]
 
         return [
@@ -281,7 +302,7 @@ class HybridRetriever:
         if not self.all_documents:
             return {"results": [], "timings": {"embed_ms": 0, "search_ms": 0, "rerank_ms": 0}}
 
-        # Multi-query expansion: embed original + alternatives, fuse via RRF
+        # Multi-query expansion via Groq LLM, then embed all queries
         embed_start = _time.perf_counter()
         expanded = _expand_query(query)
         extra_queries = expanded[1:] if len(expanded) > 1 else None
@@ -324,7 +345,7 @@ class HybridRetriever:
 
 if __name__ == "__main__":
     retriever = HybridRetriever()
-    query = "How do I troubleshoot a refrigerant leak?"
+    query = "What is the India Cooling Action Plan?"
     results = retriever.hybrid_search(query, top_k=5)
     for i, r in enumerate(results, 1):
         print(f"[{i}] {r['metadata']['filename']} p{r['metadata']['page_number']}: {r['document'][:120]}...")

@@ -48,10 +48,10 @@ K_VALUES = [1, 3, 5]
 
 OLLAMA_BASE_URL = "http://localhost:11434"
 OLLAMA_MODEL = "llama3.2:latest"
-GROQ_MODEL = "llama-3.1-8b-instant"  # 8B: ~8x fewer tokens than 70B, well within free TPD
+GROQ_MODEL = "llama-3.3-70b-versatile"  # 70B: follows HVAC expert rules far better than 8B
 
-# Max context chars passed to the generator — keeps each Groq request ≤ ~800 tokens
-CONTEXT_CHAR_LIMIT = 3000
+# Max context chars passed to the generator — 70B handles longer context well
+CONTEXT_CHAR_LIMIT = 6000
 
 
 def _truncate_context(context: str) -> str:
