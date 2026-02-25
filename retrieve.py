@@ -45,27 +45,28 @@ def _expand_query(query: str) -> List[str]:
     from groq import Groq
     client = Groq(api_key=groq_key)
     prompt = (
-        "Generate 2 alternative phrasings of this question for document retrieval. "
-        "Focus on semantic diversity — different vocabulary, same intent. "
-        "Output only the 2 alternatives, one per line, no numbering, no explanations.\n\n"
+        "Generate 4 alternative phrasings of this question for document retrieval. "
+        "Focus on semantic diversity — use different vocabulary, synonyms, and phrasing while preserving the original intent. "
+        "Include the document or source name if mentioned in the question. "
+        "Output only the 4 alternatives, one per line, no numbering, no explanations.\n\n"
         f"Question: {query}"
     )
     try:
         resp = client.chat.completions.create(
             model="llama-3.1-8b-instant",
             messages=[{"role": "user", "content": prompt}],
-            temperature=0.3,
-            max_tokens=120,
+            temperature=0.4,
+            max_tokens=250,
         )
         lines = [l.strip() for l in resp.choices[0].message.content.strip().split("\n") if l.strip()]
         seen = {query.lower().rstrip("?. ")}
         deduped = [query]
-        for a in lines[:2]:
+        for a in lines[:4]:
             key = a.lower().rstrip("?. ")
             if key not in seen and len(a) > 10:
                 seen.add(key)
                 deduped.append(a)
-        return deduped[:3]
+        return deduped[:5]
     except Exception:
         return [query]  # graceful fallback — never let expansion break retrieval
 
@@ -99,8 +100,13 @@ class HybridRetriever:
         self.all_ids = None
 
     def _embed(self, texts: List[str]) -> List[List[float]]:
-        """Embed a list of texts using bge-m3 (local SentenceTransformer)."""
-        return self.embedding_model.encode(texts).tolist()
+        """Embed query texts using bge-m3 (local SentenceTransformer).
+
+        Prepends 'query: ' prefix to align with the document-context enriched
+        embeddings stored in ChromaDB (which have 'Document: <title>\n\n' prefixed).
+        """
+        prefixed = ["query: " + t for t in texts]
+        return self.embedding_model.encode(prefixed).tolist()
 
     def _load_bm25_index(self, brand_filter: str = None):
         """Build BM25 index from ChromaDB documents, with optional filename filter."""

@@ -15,6 +15,20 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      # ---- System deps (Tesseract OCR + Ollama) ----
+      - name: Install Tesseract OCR
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y tesseract-ocr
+
+      - name: Install and start Ollama
+        run: |
+          curl -fsSL https://ollama.com/install.sh | sh
+          ollama serve &
+          sleep 5
+          ollama pull qwen2.5:3b
+          echo "Ollama ready with qwen2.5:3b"
+
       # ---- Python ----
       - name: Set up Python 3.11
         uses: actions/setup-python@v5
@@ -28,17 +42,16 @@ jobs:
           pip install -r requirements.txt
 
       # ---- Run Eval ----
-      # All heavy inference is done via APIs — no local model weights needed:
-      #   - Answer generation : Groq API (GROQ_API_KEY) — llama-3.3-70b-versatile
-      #   - Reranker          : HF Inference API (HF_TOKEN) — ctxl-rerank-v2
-      #   - LMUnit judge      : HF Inference API (HF_TOKEN) — LMUnit-qwen2.5-72b
+      # Answer generation : Groq API (GROQ_API_KEY) — llama-3.3-70b-versatile
+      # Reranker          : HF Inference API (HF_TOKEN) — ctxl-rerank-v2
+      # LLM Judge         : Local Ollama (qwen2.5:3b) — no API key needed
       - name: Run comprehensive evaluation
         env:
           CHROMA_COLLECTION_NAME: hvac_documents
           TOKENIZERS_PARALLELISM: "false"
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
-          CONTEXTUAL_API_KEY: ${{ secrets.CONTEXTUAL_API_KEY }}
+          # CONTEXTUAL_API_KEY intentionally omitted — using Ollama judge instead
         run: |
           python run_contextual_eval.py \
             --output eval_results_comprehensive.json \

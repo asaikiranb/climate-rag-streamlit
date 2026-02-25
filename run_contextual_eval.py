@@ -41,7 +41,15 @@ from llm import build_context
 from config import SYSTEM_PROMPT, SYSTEM_MESSAGE, LLM_TEMPERATURE, LLM_MAX_TOKENS, LLM_TOP_P
 from eval.metrics import citation_validity, citation_coverage, source_grounding
 from eval.retrieval_metrics import compute_retrieval_metrics_at_k
-from eval.generation_metrics import judge_generation, LMUNIT_MODEL
+
+# Judge routing: LMUnit (paid, premium) vs Ollama (free, local)
+_USE_OLLAMA_JUDGE = not os.environ.get("CONTEXTUAL_API_KEY")
+if _USE_OLLAMA_JUDGE:
+    from eval.generation_metrics_ollama import judge_generation, OLLAMA_JUDGE_MODEL
+    JUDGE_MODEL_LABEL = f"ollama/{OLLAMA_JUDGE_MODEL}"
+else:
+    from eval.generation_metrics import judge_generation, LMUNIT_MODEL
+    JUDGE_MODEL_LABEL = LMUNIT_MODEL
 
 
 K_VALUES = [1, 3, 5]
@@ -216,7 +224,7 @@ def _write_results(
                 if os.environ.get("GROQ_API_KEY")
                 else f"ollama/{OLLAMA_MODEL}"
             ),
-            "judge_model": LMUNIT_MODEL,
+            "judge_model": JUDGE_MODEL_LABEL,
             "total_questions": total,
         },
         "retrieval_metrics": agg_retrieval,
@@ -270,7 +278,7 @@ def run_eval(
             print(f"Using Groq API ({GROQ_MODEL}) for answer generation")
         else:
             print(f"Using local Ollama ({OLLAMA_MODEL}) for answer generation")
-        print(f"Using Contextual AI LMUnit ({LMUNIT_MODEL}) for generation scoring")
+        print(f"Using {JUDGE_MODEL_LABEL} for generation scoring")
 
     # Accumulators
     results_log = []

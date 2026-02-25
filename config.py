@@ -8,7 +8,7 @@ LLM_TOP_P = 0.9
 
 # Retrieval
 RETRIEVAL_TOP_K = 5
-RETRIEVAL_CANDIDATE_K = 40  # candidates fetched before reranking (wider pool for reranker)
+RETRIEVAL_CANDIDATE_K = 80  # candidates fetched before reranking (wider pool for reranker)
 
 # System prompt
 SYSTEM_PROMPT = """You are a senior refrigerant handling specialist with 20+ years of field experience in HVAC systems, EPA compliance, hydrocarbon refrigerants, leak detection, recovery procedures, vacuum testing, and safe installation practices.

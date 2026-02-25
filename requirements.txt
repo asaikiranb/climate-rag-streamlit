@@ -14,3 +14,5 @@ transformers>=4.51.0
 torch>=2.0.0
 huggingface_hub>=0.23.0
 contextual-client>=0.1.0
+pytesseract>=0.3.10
+Pillow>=10.0.0
