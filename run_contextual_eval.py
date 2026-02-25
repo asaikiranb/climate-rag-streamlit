@@ -131,11 +131,12 @@ def generate_answer_groq(query: str, context: str) -> str:
 
 
 def generate_answer(query: str, context: str, search_results: list = None) -> str:
-    """Route: Contextual GLM (primary, CI) → Groq (fallback) → Ollama (local dev)."""
+    """Route: Contextual GLM (premium) → Ollama (CI / local dev).
+    
+    GROQ_API_KEY is reserved for query expansion only.
+    """
     if os.environ.get("CONTEXTUAL_API_KEY"):
         return generate_answer_contextual(query, search_results or [])
-    if os.environ.get("GROQ_API_KEY"):
-        return generate_answer_groq(query, context)
     return generate_answer_ollama(query, context)
 
 

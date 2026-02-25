@@ -34,16 +34,10 @@ def _expand_query(query: str) -> List[str]:
     """
     Generate alternative phrasings for a query to improve recall.
 
-    Uses Groq (llama-3.1-8b-instant) when GROQ_API_KEY is set — LLM-based expansion
-    produces true semantic paraphrases with different vocabulary. Falls back to a single
-    query when no API key is available.
+    Uses Groq (llama-3.1-8b-instant) when GROQ_API_KEY is set.
+    Falls back to Ollama when no Groq key is available (e.g. in CI).
+    Returns just the original query if neither is available.
     """
-    groq_key = os.environ.get("GROQ_API_KEY")
-    if not groq_key:
-        return [query]
-
-    from groq import Groq
-    client = Groq(api_key=groq_key)
     prompt = (
         "Generate 4 alternative phrasings of this question for document retrieval. "
         "Focus on semantic diversity — use different vocabulary, synonyms, and phrasing while preserving the original intent. "
@@ -51,24 +45,55 @@ def _expand_query(query: str) -> List[str]:
         "Output only the 4 alternatives, one per line, no numbering, no explanations.\n\n"
         f"Question: {query}"
     )
-    try:
-        resp = client.chat.completions.create(
-            model="llama-3.1-8b-instant",
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0.4,
-            max_tokens=250,
-        )
-        lines = [l.strip() for l in resp.choices[0].message.content.strip().split("\n") if l.strip()]
-        seen = {query.lower().rstrip("?. ")}
-        deduped = [query]
-        for a in lines[:4]:
-            key = a.lower().rstrip("?. ")
-            if key not in seen and len(a) > 10:
-                seen.add(key)
-                deduped.append(a)
-        return deduped[:5]
-    except Exception:
-        return [query]  # graceful fallback — never let expansion break retrieval
+
+    raw_text = None
+    groq_key = os.environ.get("GROQ_API_KEY")
+    if groq_key:
+        try:
+            from groq import Groq
+            client = Groq(api_key=groq_key)
+            resp = client.chat.completions.create(
+                model="llama-3.1-8b-instant",
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.4,
+                max_tokens=250,
+            )
+            raw_text = resp.choices[0].message.content.strip()
+        except Exception:
+            pass
+
+    # Ollama fallback (used in CI where GROQ_API_KEY is not set)
+    if raw_text is None:
+        try:
+            import requests
+            ollama_url = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
+            resp = requests.post(
+                f"{ollama_url}/api/generate",
+                json={
+                    "model": os.environ.get("OLLAMA_MODEL", "qwen2.5:3b"),
+                    "prompt": prompt,
+                    "stream": False,
+                    "options": {"temperature": 0.4, "num_predict": 250},
+                },
+                timeout=60,
+            )
+            resp.raise_for_status()
+            raw_text = resp.json().get("response", "").strip()
+        except Exception:
+            return [query]
+
+    if not raw_text:
+        return [query]
+
+    lines = [l.strip() for l in raw_text.split("\n") if l.strip()]
+    seen = {query.lower().rstrip("?. ")}
+    deduped = [query]
+    for a in lines[:4]:
+        key = a.lower().rstrip("?. ")
+        if key not in seen and len(a) > 10:
+            seen.add(key)
+            deduped.append(a)
+    return deduped[:5]
 
 
 class HybridRetriever:
