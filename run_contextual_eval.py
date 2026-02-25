@@ -48,15 +48,38 @@ K_VALUES = [1, 3, 5]
 
 OLLAMA_BASE_URL = "http://localhost:11434"
 OLLAMA_MODEL = "llama3.2:latest"
-GROQ_MODEL = "llama-3.3-70b-versatile"  # 70B: follows HVAC expert rules far better than 8B
+GROQ_MODEL = "llama-3.3-70b-versatile"      # fallback when CONTEXTUAL_API_KEY not set
+CONTEXTUAL_GENERATE_MODEL = "v1"             # Contextual AI GLM model version
 
-# Max context chars passed to the generator — 70B handles longer context well
+# Max context chars passed to Groq/Ollama fallback generators
 CONTEXT_CHAR_LIMIT = 6000
 
 
 def _truncate_context(context: str) -> str:
     """Truncate context to keep Groq token usage manageable."""
     return context[:CONTEXT_CHAR_LIMIT]
+
+
+def generate_answer_contextual(query: str, search_results: list) -> str:
+    """Generate answer using Contextual AI GLM (grounded, no TPD limits).
+
+    Passes retrieved chunks as `knowledge` — the GLM is engineered to stay faithful
+    to the provided documents and minimise hallucinations.
+    """
+    from contextual import ContextualAI
+    client = ContextualAI(api_key=os.environ["CONTEXTUAL_API_KEY"])
+    knowledge = [r["document"] for r in search_results]
+    response = client.generate.create(
+        model=CONTEXTUAL_GENERATE_MODEL,
+        messages=[{"role": "user", "content": query}],
+        knowledge=knowledge,
+        system_prompt=SYSTEM_MESSAGE,
+        avoid_commentary=True,
+        max_new_tokens=LLM_MAX_TOKENS,
+        temperature=LLM_TEMPERATURE,
+        top_p=LLM_TOP_P,
+    )
+    return response.response.strip()
 
 
 def generate_answer_ollama(query: str, context: str) -> str:
@@ -99,8 +122,10 @@ def generate_answer_groq(query: str, context: str) -> str:
     return completion.choices[0].message.content.strip()
 
 
-def generate_answer(query: str, context: str) -> str:
-    """Route to Groq (CI) or Ollama (local) based on available env vars."""
+def generate_answer(query: str, context: str, search_results: list = None) -> str:
+    """Route: Contextual GLM (primary, CI) → Groq (fallback) → Ollama (local dev)."""
+    if os.environ.get("CONTEXTUAL_API_KEY"):
+        return generate_answer_contextual(query, search_results or [])
     if os.environ.get("GROQ_API_KEY"):
         return generate_answer_groq(query, context)
     return generate_answer_ollama(query, context)
@@ -184,7 +209,13 @@ def _write_results(
             "top_k": top_k,
             "retrieval_only": retrieval_only,
             "reranker": "ContextualAI/ctxl-rerank-v2-instruct-multilingual-1b" if use_reranker else "none",
-            "answer_model": f"groq/{GROQ_MODEL} (ctx:{CONTEXT_CHAR_LIMIT}chars)" if os.environ.get("GROQ_API_KEY") else f"ollama/{OLLAMA_MODEL}",
+            "answer_model": (
+                f"contextual/glm-{CONTEXTUAL_GENERATE_MODEL} (grounded)"
+                if os.environ.get("CONTEXTUAL_API_KEY")
+                else f"groq/{GROQ_MODEL} (ctx:{CONTEXT_CHAR_LIMIT}chars)"
+                if os.environ.get("GROQ_API_KEY")
+                else f"ollama/{OLLAMA_MODEL}"
+            ),
             "judge_model": LMUNIT_MODEL,
             "total_questions": total,
         },
@@ -233,7 +264,9 @@ def run_eval(
 
     # LLM + judge
     if not retrieval_only:
-        if os.environ.get("GROQ_API_KEY"):
+        if os.environ.get("CONTEXTUAL_API_KEY"):
+            print(f"Using Contextual AI GLM (model={CONTEXTUAL_GENERATE_MODEL}) for answer generation")
+        elif os.environ.get("GROQ_API_KEY"):
             print(f"Using Groq API ({GROQ_MODEL}) for answer generation")
         else:
             print(f"Using local Ollama ({OLLAMA_MODEL}) for answer generation")
@@ -291,9 +324,9 @@ def run_eval(
             try:
                 context = build_context(search_results)
 
-                # Generate answer (Groq in CI, Ollama locally)
+                # Generate answer (Contextual GLM in CI, Groq fallback, Ollama local)
                 gen_start = time.perf_counter()
-                answer = generate_answer(question, context)
+                answer = generate_answer(question, context, search_results=search_results)
                 gen_ms = (time.perf_counter() - gen_start) * 1000
                 latency_generate.append(round(gen_ms, 2))
 

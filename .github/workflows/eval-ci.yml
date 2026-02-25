@@ -38,6 +38,7 @@ jobs:
           TOKENIZERS_PARALLELISM: "false"
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          CONTEXTUAL_API_KEY: ${{ secrets.CONTEXTUAL_API_KEY }}
         run: |
           python run_contextual_eval.py \
             --output eval_results_comprehensive.json \
