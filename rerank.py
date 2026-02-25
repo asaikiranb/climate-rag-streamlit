@@ -2,8 +2,13 @@
 
 Two backends are provided:
   - ContextualReranker      — loads model weights locally (GPU/CPU). Used by the live app.
-  - ContextualRerankerAPI   — calls ctxl-rerank-v2 via the HuggingFace Inference API.
-                              No local weights needed; requires HF_TOKEN. Used in CI.
+  - ContextualRerankerAPI   — calls ctxl-rerank-v2 via the old HF Inference API
+                              (api-inference.huggingface.co). No local weights needed;
+                              requires HF_TOKEN. Used in CI.
+                              NOTE: Uses text_generation() NOT chat_completion() —
+                              the newer router.huggingface.co endpoint requires "Inference
+                              Providers" permission (paid Pro). The old endpoint only needs
+                              a standard read token.
 """
 
 import math
@@ -17,6 +22,7 @@ from huggingface_hub import InferenceClient
 # ctxl-rerank-v2-instruct-multilingual-1b is the smallest / fastest variant.
 # Swap to the 2b or 6b model ID for higher quality at the cost of memory/speed.
 RERANKER_MODEL = "ContextualAI/ctxl-rerank-v2-instruct-multilingual-1b"
+HF_INFERENCE_URL = "https://api-inference.huggingface.co"
 
 # Default instruction — can be overridden per-query via rerank(instruction=...)
 DEFAULT_INSTRUCTION = (
@@ -89,13 +95,14 @@ def load_reranker() -> ContextualReranker:
 
 
 class ContextualRerankerAPI:
-    """Contextual AI ctxl-rerank-v2 called via HuggingFace Inference API.
+    """Contextual AI ctxl-rerank-v2 called via the old HF Inference API.
 
-    No local model weights are downloaded — scoring is done server-side.
-    Requires HF_TOKEN to be set in the environment.
+    Uses api-inference.huggingface.co (text_generation endpoint) rather than
+    the newer router.huggingface.co (chat_completion). The router requires
+    "Inference Providers" permission (paid Pro tier); the old endpoint only
+    needs a standard HF read token — which CI has.
 
-    The prompt format and scoring logic mirror ContextualReranker so that
-    the rerank() function works identically with either backend.
+    No local model weights are downloaded. Requires HF_TOKEN.
     """
 
     def __init__(self, model_id: str = RERANKER_MODEL):
@@ -105,43 +112,40 @@ class ContextualRerankerAPI:
             raise ValueError(
                 "HF_TOKEN environment variable is required for ContextualRerankerAPI"
             )
-        self.client = InferenceClient(token=hf_token)
+        # base_url pins us to the old endpoint — bypasses the router permission check.
+        self.client = InferenceClient(base_url=HF_INFERENCE_URL, token=hf_token)
+        self._logged_error = False  # log only first error per batch to avoid spam
 
     def score(self, query: str, documents: List[str], instruction: str = DEFAULT_INSTRUCTION) -> List[float]:
-        """Return a relevance score for each document via the HF Inference API.
+        """Return a relevance score (1-5) for each document via text_generation.
 
-        Uses chat_completion with an explicit scoring prompt so the model
-        returns a numeric relevance judgment (1-5) rather than free text.
-        Falls back to 0.0 per-document on error, logging the actual exception.
+        Falls back to 0.0 per-document on error, logging the first exception only.
         """
         instruction_suffix = f" {instruction}" if instruction else ""
-        _logged_error = False  # log only the first error per batch to avoid spam
 
         scores = []
         for doc in documents:
-            user_msg = (
+            prompt = (
                 f"Score how relevant this document is for answering the query.\n"
                 f"Query: {query}{instruction_suffix}\n"
                 f"Document: {doc[:1500]}\n\n"
-                f"Output only an integer from 1 (not relevant) to 5 (highly relevant)."
+                f"Output only an integer from 1 (not relevant) to 5 (highly relevant). Score:"
             )
             try:
-                response = self.client.chat_completion(
+                response = self.client.text_generation(
+                    prompt,
                     model=self.model_id,
-                    messages=[
-                        {"role": "system", "content": "You are a relevance scoring assistant. Output only an integer 1-5."},
-                        {"role": "user", "content": user_msg},
-                    ],
-                    max_tokens=3,
-                    temperature=0.0,
+                    max_new_tokens=3,
+                    temperature=0.01,       # text_generation rejects 0.0
+                    return_full_text=False,
                 )
-                raw = response.choices[0].message.content.strip()
+                raw = response.strip() if isinstance(response, str) else ""
                 digit = next((c for c in raw if c.isdigit()), None)
                 score = float(digit) if digit is not None else 2.5  # neutral fallback
             except Exception as e:
-                if not _logged_error:
+                if not self._logged_error:
                     print(f"    [ContextualRerankerAPI] error (suppressing further): {type(e).__name__}: {e}")
-                    _logged_error = True
+                    self._logged_error = True
                 score = 0.0
             scores.append(score)
 
