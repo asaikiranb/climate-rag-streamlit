@@ -1,6 +1,8 @@
 """Groq client and answer generation (with Ollama fallback)."""
 
 import os
+import subprocess
+import time
 import requests
 from dotenv import load_dotenv
 from groq import Groq
@@ -10,8 +12,33 @@ from config import SYSTEM_PROMPT, SYSTEM_MESSAGE, LLM_MODEL, LLM_TEMPERATURE, LL
 load_dotenv()
 
 OLLAMA_BASE_URL = "http://localhost:11434"
-OLLAMA_MODEL = "llama3.2:latest"
+OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "qwen2.5:3b")
 
+_ollama_started = False
+
+
+def _ensure_ollama_running():
+    """Start Ollama server if not already running."""
+    global _ollama_started
+    if _ollama_started:
+        return
+    try:
+        requests.get(f"{OLLAMA_BASE_URL}/api/tags", timeout=2)
+        _ollama_started = True
+        return
+    except Exception:
+        pass
+    print("    Starting Ollama server for answer generation...")
+    subprocess.Popen(["ollama", "serve"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    for _ in range(30):
+        time.sleep(1)
+        try:
+            requests.get(f"{OLLAMA_BASE_URL}/api/tags", timeout=2)
+            _ollama_started = True
+            print("    Ollama server ready")
+            return
+        except Exception:
+            pass
 
 def get_groq_client() -> Groq:
     """Return a Groq client. Raises ValueError if API key is missing."""
@@ -56,6 +83,7 @@ def generate_answer(query: str, context: str, groq_client: Groq) -> str:
 
 def generate_answer_ollama(query: str, context: str) -> str:
     """Send query + context to local Ollama and return the answer."""
+    _ensure_ollama_running()
     prompt = SYSTEM_PROMPT.format(context=context, query=query)
 
     try:
