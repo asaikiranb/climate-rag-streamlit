@@ -72,19 +72,16 @@ def _expand_query(query: str) -> List[str]:
 
 class HybridRetriever:
     def __init__(self):
-        self.hf_token = os.environ.get("HF_TOKEN")
+        hf_token = os.environ.get("HF_TOKEN")
         self.embedding_model_id = "BAAI/bge-m3"
 
-        if self.hf_token:
-            from huggingface_hub import InferenceClient
-            self._hf_client = InferenceClient(token=self.hf_token)
-            self._use_api_embedding = True
-            print(f"Embedding: {self.embedding_model_id} via HF Inference API")
-        else:
-            from sentence_transformers import SentenceTransformer
-            self.embedding_model = SentenceTransformer(self.embedding_model_id, token=None)
-            self._use_api_embedding = False
-            print(f"Embedding: {self.embedding_model_id} (local SentenceTransformer)")
+        # Always use local SentenceTransformer for bge-m3.
+        # bge-m3 is NOT available on the HF free Inference API (returns 403),
+        # so we download/cache the weights and run inference locally.
+        # Passing token= allows authenticated downloads in CI without rate limits.
+        from sentence_transformers import SentenceTransformer
+        self.embedding_model = SentenceTransformer(self.embedding_model_id, token=hf_token or None)
+        print(f"Embedding: {self.embedding_model_id} (local SentenceTransformer)")
 
         chroma_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "chroma_db")
         self.chroma_client = chromadb.PersistentClient(path=chroma_path)
@@ -102,12 +99,7 @@ class HybridRetriever:
         self.all_ids = None
 
     def _embed(self, texts: List[str]) -> List[List[float]]:
-        """Embed a list of texts using bge-m3 (API or local)."""
-        if self._use_api_embedding:
-            return [
-                np.array(self._hf_client.feature_extraction(t, model=self.embedding_model_id)).tolist()
-                for t in texts
-            ]
+        """Embed a list of texts using bge-m3 (local SentenceTransformer)."""
         return self.embedding_model.encode(texts).tolist()
 
     def _load_bm25_index(self, brand_filter: str = None):
