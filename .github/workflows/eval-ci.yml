@@ -26,7 +26,7 @@ jobs:
           curl -fsSL https://ollama.com/install.sh | sh
           ollama serve &
           sleep 5
-          ollama pull qwen2.5:3b
+          ollama pull qwen2.5:1.5b
           # Stop Ollama to free RAM for bge-m3 embedding model loading (~2.3GB).
           # The Ollama judge module will restart it lazily when needed for generation scoring.
           pkill ollama || true
@@ -54,6 +54,8 @@ jobs:
           CHROMA_COLLECTION_NAME: hvac_documents
           TOKENIZERS_PARALLELISM: "false"
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          OLLAMA_JUDGE_MODEL: qwen2.5:1.5b
+          OLLAMA_MODEL: qwen2.5:1.5b
           # GROQ_API_KEY intentionally omitted — using Ollama for everything
           # CONTEXTUAL_API_KEY intentionally omitted — using Ollama judge instead
         run: |

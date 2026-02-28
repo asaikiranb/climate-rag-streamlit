@@ -51,11 +51,12 @@ class GenerationClient:
 
     def _generate_ollama(self, prompt: str) -> str:
         """Fallback to local Ollama if Groq fails or is unavailable."""
+        model = os.getenv("OLLAMA_MODEL", "qwen2.5:1.5b")
         try:
             res = requests.post(
                 OLLAMA_URL,
                 json={
-                    "model": "qwen2.5:3b",
+                    "model": model,
                     "prompt": prompt,
                     "system": SYSTEM_MESSAGE,
                     "stream": False,
