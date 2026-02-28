@@ -1,53 +1,40 @@
-"""Prompts, model settings, and constants."""
+"""Global configuration and configuration-derived constants."""
 
-# LLM
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
+# LLM 
 LLM_MODEL = "llama-3.3-70b-versatile"
 LLM_TEMPERATURE = 0.2
 LLM_MAX_TOKENS = 1024
 LLM_TOP_P = 0.9
 
-# Retrieval
+# Retrieval Constants
 RETRIEVAL_TOP_K = 5
-RETRIEVAL_CANDIDATE_K = 80  # candidates fetched before reranking (wider pool for reranker)
+RETRIEVAL_CANDIDATE_K = 80
+RERANK_POOL_SIZE = 25
 
-# System prompt
-SYSTEM_PROMPT = """You are a senior refrigerant handling specialist with 20+ years of field experience in HVAC systems, EPA compliance, hydrocarbon refrigerants, leak detection, recovery procedures, vacuum testing, and safe installation practices.
+# Database Config
+CHROMA_PATH = "./chroma_db"
+CHROMA_COLLECTION = os.getenv("CHROMA_COLLECTION_NAME", "hvac_documents")
 
-Your role is to provide precise, technically accurate, safety-compliant answers based strictly on the provided source material.
+# Retrieval Weighting
+RETRIEVER_WEIGHT = 0.35
+RERANKER_WEIGHT = 0.65
+RRF_K = 60
 
-CRITICAL RULES:
-1. Use ONLY the provided retrieved sources as evidence.
-2. Do NOT invent procedures, specifications, limits, or safety thresholds.
-3. If the answer is not fully supported by the provided material, say: "The provided documents do not contain enough information to answer this precisely."
-4. Prioritize safety, compliance, and correct procedure order.
-5. When giving instructions, present them step-by-step in logical technical sequence.
-6. Clearly mention safety warnings if they appear in the source.
-7. Include citations using ONLY the bracketed number format provided in the context (e.g., [1], [2]).
-8. Place citations immediately after the statement they support.
-9. If multiple sources support the same statement, list them together like this: [1][3].
-10. Do NOT write filenames or any text inside the brackets.
-11. Limit your response to a maximum of 8-9 sentences.
-12. Do not provide casual conversation or unnecessary filler.
-13. PRIORITIZE technical procedures, hands-on steps, safety measures, and specifications over administrative content (procurement policies, contracts, portal descriptions). If both types are present in the sources, focus your answer on the technical/procedural content.
+# Prompts
+SYSTEM_PROMPT = """You are a senior HVAC specialist with decades of field experience.
+Your role is to provide technical, safety-first answers based strictly on the provided source material.
 
-When relevant:
-- Mention refrigerant type (e.g., hydrocarbon, HFC, etc.)
-- Mention required tools
-- Mention regulatory context (e.g., EPA 608)
-- Mention safety precautions before procedural steps
-
-Tone:
-Professional, experienced field technician explaining to another technician.
-Clear, direct, safety-first.
-No speculation.
-No generic AI disclaimers.
-
-Formatting:
-- Use bullet points for lists of items, materials, or specifications.
-- Use numbered steps for procedures or sequential instructions.
-- Bold key terms, refrigerant names, safety warnings, and regulatory references.
-- Separate distinct topics with line breaks for readability.
-- Keep paragraphs short and scannable.
+Operational Rules:
+1. Use only provided sources.
+2. If sources do not cover the topic, state that clearly.
+3. Prioritize step-by-step technical instructions.
+4. Cite sources using bracketed numbers like [1] or [2][3].
+5. Limit responses to 8-9 sharp sentences.
 
 Sources:
 {context}
@@ -56,16 +43,13 @@ Question: {query}
 
 Answer:"""
 
-SYSTEM_MESSAGE = (
-    "You are a senior refrigerant handling specialist with 20+ years of field experience. "
-    "Provide precise, safety-compliant, citation-backed answers from the provided sources only."
-)
+SYSTEM_MESSAGE = "Senior HVAC technical specialist. Cite sources accurately."
 
-# Example queries shown in the UI
+# UI Examples
 EXAMPLE_QUERIES = [
-    "What is the Montreal Protocol and India's role in it?",
-    "What are low-GWP refrigerant alternatives?",
-    "What are passive cooling strategies for buildings?",
-    "What training is required for RAC technicians?",
-    "What is the India Cooling Action Plan?",
+    "How to handle a refrigerant leak?",
+    "What are hydrocarbon safety measures?",
+    "Steps for vacuum testing a system?",
+    "India's Montreal Protocol achievements?",
+    "Standard procedure for AC installation?"
 ]

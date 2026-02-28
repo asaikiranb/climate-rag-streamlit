@@ -1,4 +1,4 @@
-"""Renders the answer + source cards as an HTML block for Streamlit."""
+"""Renders the grounding context and source attribution as HTML for the Streamlit UI."""
 
 import re
 import html as html_lib

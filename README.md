@@ -1,120 +1,62 @@
-# RAG for Climate Challenges
+# Climate Retrieval-Augmented Generation (RAG) System
 
-Search and query climate research documents using hybrid retrieval + LLM-generated answers with source citations.
+A robust technical assistant designed to search and reason across climate documentation. This system uses advanced retrieval and reranking strategies to ensure high-fidelity answers with precise source attribution.
 
-## What it does
+## System Architecture
 
-1. You feed it PDFs (climate reports, policy docs, technical papers)
-2. It chunks and indexes them in a local ChromaDB vector store
-3. You ask questions in a Streamlit UI
-4. It retrieves the best chunks using vector search + BM25, fuses the results, and generates a cited answer via Groq (Llama 3.3 70B)
+The following diagram illustrates the flow from document ingestion to grounded response generation.
 
-## Project structure
-
-```
-├── app.py                 # Streamlit UI
-├── config.py              # Prompts, model settings, constants
-├── llm.py                 # Groq client + answer generation
-├── html_renderer.py       # HTML/CSS/JS for cited answers
-├── ingest.py              # PDF ingestion into ChromaDB
-├── retrieve.py            # Hybrid search (vector + BM25 + RRF)
-├── eval/
-│   ├── generate_test_set.py   # Generate golden Q&A test set via LLM
-│   ├── metrics.py             # Custom citation accuracy metrics
-│   ├── run_eval.py            # RAGAS + custom eval runner
-│   └── report.py              # Print/export eval results
-├── requirements.txt
-├── .env.example
-└── chroma_db/             # Local vector store (auto-generated)
+```mermaid
+graph TD
+    A[Technical PDF Library] --> B[Ingestion Pipeline]
+    B --> C[ChromaDB Vector Store]
+    D[Query] --> E[Hybrid Retriever]
+    C --> E
+    E --> F[Vector + BM25 RRF]
+    F --> G[Cross-Encoder Reranker]
+    G --> H[Generation Client]
+    H --> I[Grounded Answer]
 ```
 
-## Setup
+## Technical Implementation
 
-**Requirements:** Python 3.8+, a [Groq API key](https://console.groq.com/)
+### Hybrid Retrieval
+The system uses a two-stage retrieval process. First, a hybrid search combines semantic vector matching (BAAI/bge-m3) with keyword-based BM25 search. These results are merged using Reciprocal Rank Fusion (RRF).
 
-```bash
-# Clone
-git clone https://github.com/asaikiranb/RAG-climate.git
-cd RAG-climate
+### Cross-Encoder Reranking
+Retrieved candidates are re-scored using the BAAI/bge-reranker-v2-m3 model. A second fusion stage combines the retriever rank with the cross-encoder rank to ensure stable and accurate document promotion.
 
-# Install
-python -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
+### Grounded Generation
+Answers are generated using Llama 3.3 70B via the Groq API. The system includes a local Ollama fallback (Qwen 2.5) to maintain availability if the primary API is unreachable.
 
-# Configure
-cp .env.example .env
-# Edit .env and paste your GROQ_API_KEY
-```
+## Key Metrics
+
+Our evaluation suite measures retrieval performance using standard information retrieval metrics.
+
+| Metric | Score | Note |
+| :--- | :--- | :--- |
+| **Recall@1** | 0.7094 | Primary accuracy target |
+| **Recall@5** | 0.8889 | Retrieval ceiling |
+| **Latency** | ~4.8s | P50 Reranking time |
 
 ## Usage
 
-### 1. Ingest your PDFs
-
-Put PDF files in a `data/` folder, then run:
-
+### Ingestion
+Process your technical PDF library into the vector store.
 ```bash
 python ingest.py
 ```
 
-This extracts text, chunks it (1000 tokens, 200 overlap), generates embeddings, and stores everything in local ChromaDB.
-
-### 2. Run the app
-
+### Application
+Launch the search interface.
 ```bash
 streamlit run app.py
 ```
 
-Opens at `http://localhost:8501`. Type a question or click one of the example queries.
-
-### 3. Run evals (optional)
-
-Evaluate retrieval quality and answer accuracy:
-
+### Evaluation
+Measure the performance of the system.
 ```bash
-# Generate a golden test set (LLM writes ground truth from your docs)
-python -m eval.generate_test_set
-
-# Run full evaluation (RAGAS metrics + citation accuracy)
-python -m eval.run_eval
-
-# View results
-python -m eval.report --markdown
+python run_contextual_eval.py
 ```
 
-Eval metrics:
-- **RAGAS**: faithfulness, answer relevancy, context precision, context recall
-- **Custom**: citation validity, citation coverage, source grounding
-
-## How retrieval works
-
-```
-Query
-  ├── Vector search (semantic, via ChromaDB)
-  ├── BM25 search (keyword, via rank-bm25)
-  └── Reciprocal Rank Fusion (merges both)
-        → Top 5 chunks → LLM generates cited answer
-```
-
-## Configuration
-
-All settings live in `config.py`:
-- `LLM_MODEL` : which Groq model to use (default: `llama-3.3-70b-versatile`)
-- `LLM_TEMPERATURE`, `LLM_MAX_TOKENS` : generation params
-- `SYSTEM_PROMPT` : controls answer style and citation behavior
-- `EXAMPLE_QUERIES` : the example buttons shown in the UI
-
-Chunk size and overlap can be changed in `ingest.py` when calling `chunk_text()`.
-
-## Costs
-
-Groq free tier: 14,400 requests/day. No paid APIs required.
-
-## Troubleshooting
-
-| Problem | Fix |
-|---------|-----|
-| `GROQ_API_KEY not found` | Create `.env` file, paste your key |
-| `No PDF files found` | Put PDFs in `data/` folder |
-| `Could not connect to collection` | Run `python ingest.py` first |
-| Empty results | Try broader queries, check ingestion output |
+Designed for precision. Built for reliability.

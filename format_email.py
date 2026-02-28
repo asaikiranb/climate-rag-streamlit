@@ -1,10 +1,4 @@
-"""
-Format eval results as an HTML email body.
-
-Usage:
-    python format_email.py --input eval_results_comprehensive.json \
-        --branch feature-x --commit abc1234 --repo user/repo > email.html
-"""
+"""Formats evaluation results as a structured HTML email for stakeholder reporting."""
 
 import json
 import argparse
