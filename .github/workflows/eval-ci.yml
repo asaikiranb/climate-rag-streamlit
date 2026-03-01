@@ -60,6 +60,7 @@ jobs:
           # CONTEXTUAL_API_KEY intentionally omitted — using Ollama judge instead
         run: |
           python run_contextual_eval.py \
+            --retrieval-only \
             --output eval_results_comprehensive.json \
             2>&1 | tee eval_output.log
           echo "Eval complete"
