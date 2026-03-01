@@ -12,13 +12,20 @@ LANG_NAMES = {
 
 
 def load_model() -> WhisperModel:
-    """Load Whisper model. Size set via WHISPER_MODEL env var, defaults to small."""
+    """Loads a Faster-Whisper model for speech-to-text processing. 
+    
+    The model size is configurable via the WHISPER_MODEL environment variable.
+    Device is pinned to CPU for broad compatibility.
+    """
     model_size = os.environ.get("WHISPER_MODEL", "small")
     return WhisperModel(model_size, device="cpu", compute_type="int8")
 
 
 def decode_audio(audio_file) -> np.ndarray:
-    """Read WAV bytes into a mono float32 array at 16kHz."""
+    """Decodes WAV bytes into a normalized mono float32 array at 16kHz.
+    
+    Resamples input if the sample rate differs from the processing target.
+    """
     audio_file.seek(0)
     data, samplerate = sf.read(audio_file, dtype="float32")
     if data.ndim == 2:
@@ -31,7 +38,10 @@ def decode_audio(audio_file) -> np.ndarray:
 
 
 def transcribe(model: WhisperModel, audio_np: np.ndarray) -> tuple:
-    """Transcribe audio and translate to English. Returns (text, status)."""
+    """Transcribes audio and translates it to English using the provided model.
+    
+    Returns a tuple containing the transcribed text and a status string.
+    """
     segments, info = model.transcribe(
         audio_np,
         task="translate",

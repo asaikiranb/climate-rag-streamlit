@@ -1,10 +1,4 @@
-"""
-Format eval results as an HTML email body.
-
-Usage:
-    python format_email.py --input eval_results_comprehensive.json \
-        --branch feature-x --commit abc1234 --repo user/repo > email.html
-"""
+"""Formats evaluation results as a structured HTML email for stakeholder reporting."""
 
 import json
 import argparse
@@ -133,14 +127,16 @@ def build_html(data: dict, branch: str, commit: str, repo: str) -> str:
 
 <h2>By Difficulty</h2>
 <table>
-  <tr><th>Difficulty</th><th>Count</th><th>Recall@5</th><th>MRR@5</th><th>NDCG@5</th><th>Faithfulness</th></tr>"""
+  <tr><th>Difficulty</th><th>Count</th><th>Top-1 Acc</th><th>Recall@5</th><th>MRR@5</th><th>NDCG@5</th><th>Faithfulness</th></tr>"""
 
     for d in ["Easy", "Medium", "Hard"]:
         dd = diff.get(d, {})
+        acc1 = dd.get('recall@1', 0)
         html += f"""
   <tr>
     <td><strong>{d}</strong></td>
     <td>{dd.get('count', 0)}</td>
+    <td class="metric" style="color:{metric_color(acc1)}">{acc1:.1%}</td>
     <td class="metric" style="color:{metric_color(dd.get('recall@5', 0))}">{dd.get('recall@5', 0):.4f}</td>
     <td class="metric">{dd.get('mrr@5', 0):.4f}</td>
     <td class="metric">{dd.get('ndcg@5', 0):.4f}</td>

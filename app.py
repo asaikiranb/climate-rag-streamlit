@@ -2,11 +2,11 @@ import streamlit as st
 import streamlit.components.v1 as components
 
 from retrieve import HybridRetriever
-from rerank import load_reranker, rerank
-from llm import get_groq_client, build_context, generate_answer
+from rerank import CrossEncoderReranker
+from llm import GenerationClient
 from html_renderer import build_answer_html
 from query import expand_query
-from config import EXAMPLE_QUERIES, RETRIEVAL_TOP_K
+from config import EXAMPLE_QUERIES
 import voice
 
 st.set_page_config(
@@ -15,6 +15,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
+# UI Styling
 st.markdown("""
 <style>
     [data-testid="stSidebar"] { display: none; }
@@ -61,18 +62,26 @@ st.markdown("""
 
 
 @st.cache_resource
-def load_retriever():
+def get_retriever():
     return HybridRetriever()
 
 
 @st.cache_resource
-def load_reranker_model():
-    return load_reranker()
+def get_reranker_model():
+    return CrossEncoderReranker()
+
+
+@st.cache_resource
+def get_generator():
+    return GenerationClient()
 
 
 @st.cache_resource
 def load_whisper_model():
-    return voice.load_model()
+    try:
+        return voice.load_model()
+    except Exception:
+        return None
 
 
 def _init_voice_state():
@@ -88,7 +97,7 @@ def _init_voice_state():
 
 
 def _render_voice_recorder(whisper_model):
-    """Render the mic button and audio recorder. Runs transcription when audio is ready."""
+    """Render the mic button and audio recorder."""
     col_input, col_mic = st.columns([11, 1])
 
     with col_input:
@@ -149,26 +158,27 @@ def _render_voice_recorder(whisper_model):
     return query
 
 
-def _retrieve(query: str, retriever: HybridRetriever, groq_client, reranker) -> list:
-    """Expand query, run hybrid search on all variants, rerank merged pool, return top results."""
-    queries = expand_query(query, groq_client)
+def _retrieve(query: str, retriever: HybridRetriever, reranker: CrossEncoderReranker, generator: GenerationClient) -> list:
+    """Expansion, search, and reranking pipeline."""
+    # Use generator's groq client for expansion (or just use dedicated client)
+    queries = expand_query(query, generator.groq)
 
     seen_ids = set()
     candidates = []
     for q in queries:
-        for result in retriever.hybrid_search(q, reranker=reranker):
+        for result in retriever.search(q):
             if result["id"] not in seen_ids:
                 seen_ids.add(result["id"])
                 candidates.append(result)
 
-    return rerank(query, candidates, reranker)[:RETRIEVAL_TOP_K]
+    return reranker.rerank(query, candidates)
 
 
-def _render_answer(query: str, retriever: HybridRetriever, groq_client, reranker):
-    """Run the full pipeline and render the answer with source cards."""
+def _render_answer(query: str, retriever: HybridRetriever, reranker: CrossEncoderReranker, generator: GenerationClient):
+    """Execute the full RAG pipeline and render the result."""
     with st.spinner("Searching..."):
         try:
-            results = _retrieve(query, retriever, groq_client, reranker)
+            results = _retrieve(query, retriever, reranker, generator)
         except Exception as e:
             st.error(f"Search error: {str(e)}")
             st.stop()
@@ -177,18 +187,19 @@ def _render_answer(query: str, retriever: HybridRetriever, groq_client, reranker
             st.info("No relevant documents found. Try a different query.")
             st.stop()
 
-        context = build_context(results)
-        answer = generate_answer(query, context, groq_client)
+        # Selection of top 5 for generation
+        top_results = results[:5]
+        answer = generator.generate(query, top_results)
 
-    answer_html = build_answer_html(answer, results)
+    answer_html = build_answer_html(answer, top_results)
     answer_lines = answer.count("\n") + 1
-    estimated_height = 350 + (answer_lines * 22) + (len(results) * 55)
+    estimated_height = 350 + (answer_lines * 22) + (len(top_results) * 55)
     estimated_height = min(max(estimated_height, 450), 1800)
     components.html(answer_html, height=estimated_height, scrolling=True)
 
 
 def _render_example_queries():
-    """Show example query buttons when the input is idle."""
+    """Display clickable example query buttons."""
     st.markdown("")
     st.markdown("##### Try asking")
     cols = st.columns(2)
@@ -203,29 +214,10 @@ def main():
     st.title("Retrieval Augmented Generation for Climate Challenges")
     st.caption("Search across your document collection")
 
-    try:
-        groq_client = get_groq_client()
-    except ValueError as e:
-        st.error(str(e))
-        st.stop()
-
-    try:
-        with st.spinner("Loading document index..."):
-            retriever = load_retriever()
-    except Exception as e:
-        st.error(f"Error connecting to ChromaDB: {str(e)}")
-        st.stop()
-
-    with st.spinner("Loading models..."):
-        try:
-            reranker = load_reranker_model()
-        except Exception:
-            reranker = None
-
-        try:
-            whisper_model = load_whisper_model()
-        except Exception:
-            whisper_model = None
+    retriever = get_retriever()
+    reranker = get_reranker_model()
+    generator = get_generator()
+    whisper_model = load_whisper_model()
 
     _init_voice_state()
     query = _render_voice_recorder(whisper_model)
@@ -235,7 +227,7 @@ def main():
         query = ""
 
     if query:
-        _render_answer(query, retriever, groq_client, reranker)
+        _render_answer(query, retriever, reranker, generator)
     else:
         _render_example_queries()
 

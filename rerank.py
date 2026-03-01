@@ -1,30 +1,46 @@
-"""Cross-encoder reranker for scoring query-document pairs."""
+"""Cross-Encoder reranking module using BAAI/bge-reranker-v2-m3."""
 
-import os
 from typing import List, Dict
 from sentence_transformers import CrossEncoder
 
-# ms-marco-MiniLM-L-6-v2: 80MB, fast on CPU, strong relevance scoring
-RERANKER_MODEL = "cross-encoder/ms-marco-MiniLM-L-6-v2"
+from config import RERANK_POOL_SIZE, RERANKER_WEIGHT, RETRIEVER_WEIGHT, RRF_K
 
+class CrossEncoderReranker:
+    """Reranks retrieved candidates using a Cross-Encoder and weighted Rank-Based Fusion."""
 
-def load_reranker() -> CrossEncoder:
-    """Load and return the cross-encoder model."""
-    return CrossEncoder(RERANKER_MODEL, token=os.environ.get("HF_TOKEN"))
+    def __init__(self):
+        self.model = CrossEncoder("BAAI/bge-reranker-v2-m3")
 
+    def rerank(self, query: str, candidates: List[Dict]) -> List[Dict]:
+        """Optimize candidate ranking using a cross-encoder."""
+        if not candidates:
+            return candidates
 
-def rerank(query: str, results: List[Dict], model: CrossEncoder) -> List[Dict]:
-    """
-    Score each result against the query using the cross-encoder.
-    Returns results sorted by relevance score, highest first.
-    """
-    if not results:
-        return results
+        pool_size = min(RERANK_POOL_SIZE, len(candidates))
+        pool = candidates[:pool_size]
+        remainder = candidates[pool_size:]
 
-    pairs = [(query, result["document"]) for result in results]
-    scores = model.predict(pairs)
+        # 1. Score with Cross-Encoder
+        docs = [c["document"] for c in pool]
+        ce_scores = self.model.predict([(query, d) for d in docs])
 
-    for result, score in zip(results, scores):
-        result["rerank_score"] = float(score)
+        # 2. Assign CE Ranks
+        ranked_pool = sorted(
+            zip(pool, ce_scores), 
+            key=lambda x: x[1], 
+            reverse=True
+        )
 
-    return sorted(results, key=lambda x: x["rerank_score"], reverse=True)
+        # 3. Apply Weighted Rank Fusion
+        for ce_rank, (candidate, _) in enumerate(ranked_pool, start=1):
+            retriever_rank = candidates.index(candidate) + 1
+            
+            # Weighted reciprocal rank fusion
+            fused_score = (
+                RETRIEVER_WEIGHT * (1.0 / (RRF_K + retriever_rank)) + 
+                RERANKER_WEIGHT * (1.0 / (RRF_K + ce_rank))
+            )
+            candidate["fused_score"] = fused_score
+
+        pool.sort(key=lambda x: x["fused_score"], reverse=True)
+        return pool + remainder

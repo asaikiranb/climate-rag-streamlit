@@ -1,25 +1,40 @@
-"""Prompts, model settings, and constants."""
+"""Global configuration and configuration-derived constants."""
 
-# LLM
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
+# LLM 
 LLM_MODEL = "llama-3.3-70b-versatile"
 LLM_TEMPERATURE = 0.2
 LLM_MAX_TOKENS = 1024
 LLM_TOP_P = 0.9
 
-# Retrieval
+# Retrieval Constants
 RETRIEVAL_TOP_K = 5
-RETRIEVAL_CANDIDATE_K = 20  # candidates fetched before reranking
+RETRIEVAL_CANDIDATE_K = 80
+RERANK_POOL_SIZE = 25
 
-# System prompt
-SYSTEM_PROMPT = """You are a research assistant. Answer the question using ONLY information explicitly stated in the provided sources.
+# Database Config
+CHROMA_PATH = "./chroma_db"
+CHROMA_COLLECTION = os.getenv("CHROMA_COLLECTION_NAME", "hvac_documents")
 
-RULES:
-1. Be concise. Aim for 100-200 words. No filler, no restating the question.
-2. Every factual sentence must have an inline citation: "India joined in 1992 [1]." Use one citation per claim.
-3. Do not state anything that is not directly supported by a cited source.
-4. Use bullet points for lists. No bold text, no markdown headers, plain text only.
-5. Be specific. Include dates, numbers, and names from the sources.
-6. If the sources do not cover the question, say "The documents don't cover this."
+# Retrieval Weighting
+RETRIEVER_WEIGHT = 0.35
+RERANKER_WEIGHT = 0.65
+RRF_K = 60
+
+# Prompts
+SYSTEM_PROMPT = """You are a senior HVAC specialist with decades of field experience.
+Your role is to provide technical, safety-first answers based strictly on the provided source material.
+
+Operational Rules:
+1. Use only provided sources.
+2. If sources do not cover the topic, state that clearly.
+3. Prioritize step-by-step technical instructions.
+4. Cite sources using bracketed numbers like [1] or [2][3].
+5. Limit responses to 8-9 sharp sentences.
 
 Sources:
 {context}
@@ -28,16 +43,13 @@ Question: {query}
 
 Answer:"""
 
-SYSTEM_MESSAGE = (
-    "You are a concise research assistant. Answer using only the provided sources. "
-    "Every factual claim must have an inline [N] citation. No bold text. No filler."
-)
+SYSTEM_MESSAGE = "Senior HVAC technical specialist. Cite sources accurately."
 
-# Example queries shown in the UI
+# UI Examples
 EXAMPLE_QUERIES = [
-    "What is the Montreal Protocol and India's role in it?",
-    "What are low-GWP refrigerant alternatives?",
-    "What are passive cooling strategies for buildings?",
-    "What training is required for RAC technicians?",
-    "What is the India Cooling Action Plan?",
+    "How to handle a refrigerant leak?",
+    "What are hydrocarbon safety measures?",
+    "Steps for vacuum testing a system?",
+    "India's Montreal Protocol achievements?",
+    "Standard procedure for AC installation?"
 ]

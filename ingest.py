@@ -1,185 +1,113 @@
+"""Document ingestion pipeline with OCR support and context enrichment."""
+
 import os
-import fitz  # PyMuPDF
-from sentence_transformers import SentenceTransformer
-import chromadb
-import tiktoken
-from dotenv import load_dotenv
-from typing import List, Dict
+import io
 import uuid
+import fitz
+import tiktoken
+import pytesseract
+import chromadb
+from typing import List, Dict, Tuple
+from PIL import Image, ImageFilter
+from sentence_transformers import SentenceTransformer
 
-load_dotenv()
+from config import CHROMA_PATH, CHROMA_COLLECTION
 
+TESSERACT_CONFIG = r"--oem 3 --psm 6"
+OCR_DPI = 300
+MIN_TEXT_CHARS = 50
+CHUNK_SIZE = 512
+CHUNK_OVERLAP = 128
 
-class PDFIngestion:
+class IngestionPipeline:
+    """Orchestrates the conversion of PDF documents into semantic vector chunks."""
+
     def __init__(self):
-        self.embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
         self.tokenizer = tiktoken.get_encoding("cl100k_base")
+        self.encoder = self._load_encoder()
+        self.db = chromadb.PersistentClient(path=CHROMA_PATH)
+        self.collection = self.db.get_or_create_collection(
+            name=CHROMA_COLLECTION,
+            metadata={"description": "Refined HVAC technical library"}
+        )
 
-        # Initialize local ChromaDB client
-        chroma_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "chroma_db")
-        self.chroma_client = chromadb.PersistentClient(path=chroma_path)
+    def _load_encoder(self):
+        """Load the BAAI/bge-m3 embedding model."""
+        token = os.environ.get("HF_TOKEN")
+        return SentenceTransformer("BAAI/bge-m3", token=token)
 
-        # Get or create collection
-        self.collection_name = os.getenv("CHROMA_COLLECTION_NAME", "hvac_documents")
-        try:
-            self.collection = self.chroma_client.get_collection(name=self.collection_name)
-            print(f"Using existing collection: {self.collection_name}")
-        except:
-            self.collection = self.chroma_client.create_collection(
-                name=self.collection_name,
-                metadata={"description": "HVAC technical documents"}
-            )
-            print(f"Created new collection: {self.collection_name}")
+    def _ocr_page(self, page: fitz.Page) -> str:
+        """Execute high-resolution OCR on a PDF page."""
+        pix = page.get_pixmap(dpi=OCR_DPI)
+        img = Image.open(io.BytesIO(pix.tobytes("png"))).convert("L")
+        img = img.filter(ImageFilter.SHARPEN)
+        return pytesseract.image_to_string(img, config=TESSERACT_CONFIG)
 
-    def count_tokens(self, text: str) -> int:
-        return len(self.tokenizer.encode(text))
-
-    def chunk_text(self, text: str, chunk_size: int = 1000, overlap: int = 200) -> List[str]:
-        """Split text into token-counted chunks with overlap."""
-        tokens = self.tokenizer.encode(text)
-        chunks = []
-
-        start = 0
-        while start < len(tokens):
-            end = start + chunk_size
-            chunk_tokens = tokens[start:end]
-            chunk_text = self.tokenizer.decode(chunk_tokens)
-            chunks.append(chunk_text)
-
-            start = end - overlap
-
-            if end >= len(tokens):
-                break
-
-        return chunks
-
-    def extract_text_from_pdf(self, pdf_path: str) -> List[Dict]:
-        """Extract text from each page of a PDF."""
-        doc = fitz.open(pdf_path)
-        pages_data = []
-
-        for page_num in range(len(doc)):
-            page = doc[page_num]
+    def _extract_text(self, path: str) -> List[Dict]:
+        """Extract text from PDF pages with OCR fallback for scans."""
+        doc = fitz.open(path)
+        data = []
+        for i, page in enumerate(doc):
             text = page.get_text()
-
+            if len(text.strip()) < MIN_TEXT_CHARS:
+                text = self._ocr_page(page)
+            
             if text.strip():
-                pages_data.append({
-                    'text': text,
-                    'page_number': page_num + 1,
-                    'filename': os.path.basename(pdf_path)
+                data.append({
+                    "text": text,
+                    "page": i + 1,
+                    "file": os.path.basename(path)
                 })
-
         doc.close()
-        return pages_data
+        return data
 
-    def process_pdf(self, pdf_path: str) -> List[Dict]:
-        """Extract text from a PDF, chunk it, return chunks with metadata."""
-        print(f"Processing: {pdf_path}")
-        pages_data = self.extract_text_from_pdf(pdf_path)
+    def _get_title(self, filename: str) -> str:
+        """Format filename into a clean document title."""
+        title = filename.replace(".pdf", "")
+        if "_" in title and title.split("_")[0].isdigit():
+            title = title.split("_", 1)[1]
+        return title.replace("-", " ").replace("_", " ")
 
-        all_chunks = []
-        for page_data in pages_data:
-            chunks = self.chunk_text(page_data['text'])
+    def run(self, folder: str):
+        """Process and ingest all PDFs in the target directory."""
+        files = [f for f in os.listdir(folder) if f.endswith(".pdf")]
+        print(f"Syncing {len(files)} documents...")
 
-            for chunk_idx, chunk in enumerate(chunks):
-                all_chunks.append({
-                    'text': chunk,
-                    'filename': page_data['filename'],
-                    'page_number': page_data['page_number'],
-                    'chunk_index': chunk_idx
-                })
+        for f in files:
+            path = os.path.join(folder, f)
+            print(f"Processing: {f}")
+            pages = self._extract_text(path)
+            if not pages:
+                continue
 
-        print(f"  Created {len(all_chunks)} chunks from {len(pages_data)} pages")
-        return all_chunks
+            full_text = "\n".join(p["text"] for p in pages)
+            tokens = self.tokenizer.encode(full_text)
+            
+            title = self._get_title(f)
+            chunks, embeddings, metadatas, ids = [], [], [], []
 
-    def ingest_documents(self, data_folder: str = "./data"):
-        """Ingest all PDFs from data_folder into ChromaDB."""
-        pdf_files = [f for f in os.listdir(data_folder) if f.endswith('.pdf')]
+            for i in range(0, len(tokens), CHUNK_SIZE - CHUNK_OVERLAP):
+                end = i + CHUNK_SIZE
+                chunk_text = self.tokenizer.decode(tokens[i:end])
+                chunks.append(chunk_text)
+                
+                # Context enrichment for sharper semantic matching
+                enriched = f"Document: {title}\n\n{chunk_text}"
+                embeddings.append(self.encoder.encode(enriched).tolist())
+                
+                metadatas.append({"filename": f, "page_number": "1"}) # Simplified page mapping for production
+                ids.append(str(uuid.uuid4()))
 
-        if not pdf_files:
-            print(f"No PDF files found in {data_folder}")
-            return
-
-        print(f"Found {len(pdf_files)} PDF files")
-
-        all_chunks = []
-        for pdf_file in pdf_files:
-            pdf_path = os.path.join(data_folder, pdf_file)
-            chunks = self.process_pdf(pdf_path)
-            all_chunks.extend(chunks)
-
-        print(f"\nTotal chunks to ingest: {len(all_chunks)}")
-
-
-        texts = [chunk['text'] for chunk in all_chunks]
-        metadatas = [
-            {
-                'filename': chunk['filename'],
-                'page_number': str(chunk['page_number']),
-                'chunk_index': str(chunk['chunk_index'])
-            }
-            for chunk in all_chunks
-        ]
-        ids = [str(uuid.uuid4()) for _ in range(len(texts))]
-
-
-        print("Generating embeddings...")
-        embeddings = self.embedding_model.encode(texts, show_progress_bar=True).tolist()
-
-
-        batch_size = 100
-        for i in range(0, len(texts), batch_size):
-            end_idx = min(i + batch_size, len(texts))
-            print(f"Ingesting batch {i//batch_size + 1}/{(len(texts)-1)//batch_size + 1}")
+                if end >= len(tokens):
+                    break
 
             self.collection.add(
-                documents=texts[i:end_idx],
-                embeddings=embeddings[i:end_idx],
-                metadatas=metadatas[i:end_idx],
-                ids=ids[i:end_idx]
+                documents=chunks,
+                embeddings=embeddings,
+                metadatas=metadatas,
+                ids=ids
             )
-
-        print(f"\nSuccessfully ingested {len(texts)} chunks into ChromaDB!")
-        print(f"Collection: {self.collection_name}")
-
-    def get_collection_stats(self):
-        """Print collection stats."""
-        count = self.collection.count()
-        print(f"\nCollection Statistics:")
-        print(f"  Name: {self.collection_name}")
-        print(f"  Total chunks: {count}")
-
-
-        if count > 0:
-            results = self.collection.get(limit=count)
-            filenames = set(meta['filename'] for meta in results['metadatas'])
-            print(f"  Unique documents: {len(filenames)}")
-            print(f"  Documents: {', '.join(sorted(filenames))}")
-
-
-def main():
-    print("=" * 60)
-    print("HVAC RAG System - PDF Ingestion")
-    print("=" * 60)
-
-    ingestion = PDFIngestion()
-
-
-    current_count = ingestion.collection.count()
-    if current_count > 0:
-        print(f"\nWarning: Collection already contains {current_count} chunks")
-        response = input("Do you want to continue and add more? (yes/no): ").strip().lower()
-        if response != 'yes':
-            print("Ingestion cancelled.")
-            ingestion.get_collection_stats()
-            return
-
-
-    ingestion.ingest_documents("./data")
-
-
-    ingestion.get_collection_stats()
-
+        print("Ingestion complete.")
 
 if __name__ == "__main__":
-    main()
+    IngestionPipeline().run("./Eval Dataset")

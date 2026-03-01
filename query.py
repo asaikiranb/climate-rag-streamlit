@@ -1,4 +1,4 @@
-"""Query expansion: generate alternative phrasings to improve retrieval recall."""
+"""Query expansion module used to improve retrieval recall via semantic variations."""
 
 from typing import List
 from groq import Groq
@@ -13,9 +13,9 @@ Question: {query}"""
 
 
 def expand_query(query: str, groq_client: Groq) -> List[str]:
-    """
-    Return the original query plus 2 rephrased alternatives.
-    Falls back to the original query alone if the LLM call fails.
+    """Generates alternative phrasings of the input query to broaden retrieval scope.
+    
+    Returns a list containing the original query and up to two alternatives.
     """
     try:
         response = groq_client.chat.completions.create(
