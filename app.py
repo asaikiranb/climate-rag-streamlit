@@ -109,6 +109,7 @@ def _render_voice_recorder(whisper_model):
         url_query = st.query_params.get("q", "")
         if url_query:
             st.session_state["query_input"] = url_query
+            st.query_params.clear()
         elif st.session_state["voice_query"]:
             st.session_state["query_input"] = st.session_state["voice_query"]
             st.session_state["voice_query"] = ""
