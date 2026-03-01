@@ -1,62 +1,56 @@
-# Climate Retrieval-Augmented Generation (RAG) System
+# RAG Climate
+An agentic LLM + RAG framework for HVAC and climate documentation search, diagnosis, and question answering.
 
-A robust technical assistant designed to search and reason across climate documentation. This system uses advanced retrieval and reranking strategies to ensure high-fidelity answers with precise source attribution.
+## Table of Contents
+* [Motivation](#motivation)
+* [Installation](#installation)
+* [Usage](#usage)
+* [License](#license)
 
-## System Architecture
+## Motivation
+This is a capstone project sponsored by **[Abhishek Varma](https://www.linkedin.com/in/abhishekvarma2/)**.
 
-The following diagram illustrates the flow from document ingestion to grounded response generation.
+The primary objective of this project was to build a system that helps HVAC engineers and technicians get accurate, source-grounded answers from technical documentation. While most LLMs can answer general questions, they often hallucinate when dealing with domain-specific safety procedures and installation standards — that is where RAG Climate comes in.
 
-```mermaid
-graph TD
-    A[Technical PDF Library] --> B[Ingestion Pipeline]
-    B --> C[ChromaDB Vector Store]
-    D[Query] --> E[Hybrid Retriever]
-    C --> E
-    E --> F[Vector + BM25 RRF]
-    F --> G[Cross-Encoder Reranker]
-    G --> H[Generation Client]
-    H --> I[Grounded Answer]
+RAG Climate uses hybrid retrieval (semantic + BM25), cross-encoder reranking, and grounded generation by leveraging a curated library of climate and HVAC PDFs, making technical Q&A more reliable and easier to audit.
+
+## Installation
+For the latest stable version, head to [releases](https://github.com/asaikiranb/rag-climate/releases) and download the source code, or clone the repository directly:
+
+```
+git clone https://github.com/asaikiranb/rag-climate
+cd rag-climate
 ```
 
-## Technical Implementation
+Install dependencies:
 
-### Hybrid Retrieval
-The system uses a two-stage retrieval process. First, a hybrid search combines semantic vector matching (BAAI/bge-m3) with keyword-based BM25 search. These results are merged using Reciprocal Rank Fusion (RRF).
+```
+pip install -r requirements.txt
+```
 
-### Cross-Encoder Reranking
-Retrieved candidates are re-scored using the BAAI/bge-reranker-v2-m3 model. A second fusion stage combines the retriever rank with the cross-encoder rank to ensure stable and accurate document promotion.
+Configure environment variables:
 
-### Grounded Generation
-Answers are generated using Llama 3.3 70B via the Groq API. The system includes a local Ollama fallback (Qwen 2.5) to maintain availability if the primary API is unreachable.
-
-## Key Metrics
-
-Our evaluation suite measures retrieval performance using standard information retrieval metrics.
-
-| Metric | Score | Note |
-| :--- | :--- | :--- |
-| **Recall@1** | 0.7094 | Primary accuracy target |
-| **Recall@5** | 0.8889 | Retrieval ceiling |
-| **Latency** | ~4.8s | P50 Reranking time |
+```
+cp .env.example .env
+# Add your GROQ_API_KEY and HF_TOKEN
+```
 
 ## Usage
 
-### Ingestion
-Process your technical PDF library into the vector store.
-```bash
+**Ingest documents into the vector store:**
+```
 python ingest.py
 ```
 
-### Application
-Launch the search interface.
-```bash
+**Launch the Streamlit app:**
+```
 streamlit run app.py
 ```
 
-### Evaluation
-Measure the performance of the system.
-```bash
+**Run evaluation:**
+```
 python run_contextual_eval.py
 ```
 
-Designed for precision. Built for reliability.
+## License
+RAG Climate is under The MIT License. Read the [LICENSE](LICENSE) file for more information.
