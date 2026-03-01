@@ -25,13 +25,19 @@ def build_answer_html(answer_text: str, results: list) -> str:
     # Strip bold markers the LLM sometimes produces
     safe_answer = re.sub(r'\*\*(.+?)\*\*', r'\1', safe_answer)
 
+    # Numbered lists — use temp tag to keep separate from bullet <li> items
+    safe_answer = re.sub(r'^(\d+)\. (.+)$', r'<nli>\2</nli>', safe_answer, flags=re.MULTILINE)
+
     # Bullet points
     safe_answer = re.sub(r'^- (.+)$', r'<li>\1</li>', safe_answer, flags=re.MULTILINE)
-    safe_answer = re.sub(r'^(\* )(.+)$', r'<li>\2</li>', safe_answer, flags=re.MULTILINE)
+    safe_answer = re.sub(r'^\* (.+)$', r'<li>\1</li>', safe_answer, flags=re.MULTILINE)
     safe_answer = re.sub(r'((?:<li>.*?</li>\n?)+)', r'<ul>\1</ul>', safe_answer)
 
-    # Numbered lists
-    safe_answer = re.sub(r'^(\d+)\. (.+)$', r'<li>\2</li>', safe_answer, flags=re.MULTILINE)
+    # Wrap numbered list groups in <ol>, convert temp tag to <li>
+    def _wrap_ol(m):
+        inner = m.group(1).replace('<nli>', '<li>').replace('</nli>', '</li>')
+        return f'<ol>{inner}</ol>'
+    safe_answer = re.sub(r'((?:<nli>.*?</nli>\n?)+)', _wrap_ol, safe_answer)
 
     # [N] -> clickable citation pills
     def replace_citation(match):
@@ -45,7 +51,7 @@ def build_answer_html(answer_text: str, results: list) -> str:
     formatted = []
     for p in paragraphs:
         p = p.strip()
-        if p and not p.startswith('<ul>') and not p.startswith('<li>') and not p.startswith('</ul>'):
+        if p and not p.startswith(('<ul>', '<ol>', '<li>', '</ul>', '</ol>')):
             formatted.append(f'<p>{p}</p>')
         elif p:
             formatted.append(p)
@@ -96,8 +102,8 @@ def build_answer_html(answer_text: str, results: list) -> str:
         .answer-content p {{
             margin-bottom: 8px;
         }}
-        .answer-content ul {{
-            margin: 6px 0 10px 18px;
+        .answer-content ul, .answer-content ol {{
+            margin: 6px 0 10px 20px;
             padding: 0;
         }}
         .answer-content li {{
