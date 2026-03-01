@@ -18,9 +18,17 @@ class HybridRetriever:
     """Combines semantic vector search with keyword-based BM25 search."""
 
     def __init__(self):
-        self.ef = embedding_functions.SentenceTransformerEmbeddingFunction(
-            model_name="BAAI/bge-m3"
-        )
+        hf_token = os.getenv("HF_TOKEN")
+        if hf_token:
+            # Use HF Inference API on Streamlit Cloud to avoid loading ~570MB model locally
+            self.ef = embedding_functions.HuggingFaceEmbeddingFunction(
+                api_key=hf_token,
+                model_name="BAAI/bge-m3"
+            )
+        else:
+            self.ef = embedding_functions.SentenceTransformerEmbeddingFunction(
+                model_name="BAAI/bge-m3"
+            )
         self.db = chromadb.PersistentClient(path=CHROMA_PATH)
         self.collection = self.db.get_collection(name=CHROMA_COLLECTION)
         
