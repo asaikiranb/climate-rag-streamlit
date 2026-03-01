@@ -11,24 +11,19 @@ from config import (
     CHROMA_PATH, 
     CHROMA_COLLECTION, 
     RETRIEVAL_CANDIDATE_K, 
-    RRF_K
+    RRF_K,
+    VECTOR_WEIGHT,
+    BM25_WEIGHT,
 )
 
 class HybridRetriever:
     """Combines semantic vector search with keyword-based BM25 search."""
 
     def __init__(self):
-        hf_token = os.getenv("HF_TOKEN")
-        if hf_token:
-            # Use HF Inference API on Streamlit Cloud to avoid loading ~570MB model locally
-            self.ef = embedding_functions.HuggingFaceEmbeddingFunction(
-                api_key=hf_token,
-                model_name="BAAI/bge-m3"
-            )
-        else:
-            self.ef = embedding_functions.SentenceTransformerEmbeddingFunction(
-                model_name="BAAI/bge-m3"
-            )
+        # Use local SentenceTransformer only (no HuggingFace API). Same model as ingestion.
+        self.ef = embedding_functions.SentenceTransformerEmbeddingFunction(
+            model_name="BAAI/bge-m3"
+        )
         self.db = chromadb.PersistentClient(path=CHROMA_PATH)
         self.collection = self.db.get_collection(name=CHROMA_COLLECTION)
         
@@ -51,6 +46,12 @@ class HybridRetriever:
         self.documents, self.metadata, self.ids = docs, metas, ids
         tokenized = [d.lower().split() for d in docs]
         self.bm25 = BM25Okapi(tokenized)
+
+    def _normalize_query(self, query: str) -> str:
+        """Light normalization to improve retrieval match (no extra latency)."""
+        if not query or not query.strip():
+            return query
+        return " ".join(query.strip().lower().split())
 
     def search(self, query: str, top_k: int = RETRIEVAL_CANDIDATE_K, brand: str = None) -> List[Dict]:
         """Execute hybrid search using semantic and keyword strategies."""
@@ -83,16 +84,17 @@ class HybridRetriever:
         return self._fuse(vector_hits, bm25_hits)
 
     def _fuse(self, vector_hits: List[Dict], bm25_hits: List[Dict]) -> List[Dict]:
-        """Combine results using reciprocal rank fusion."""
+        """Combine results using weighted reciprocal rank fusion."""
         scores = {}
         for hit in vector_hits:
-            scores[hit["id"]] = {"score": 1 / (RRF_K + hit["rank"]), "doc": hit["doc"], "meta": hit["meta"]}
-        
+            scores[hit["id"]] = {"score": VECTOR_WEIGHT / (RRF_K + hit["rank"]), "doc": hit["doc"], "meta": hit["meta"]}
+
         for hit in bm25_hits:
+            rrf = BM25_WEIGHT / (RRF_K + hit["rank"])
             if hit["id"] in scores:
-                scores[hit["id"]]["score"] += 1 / (RRF_K + hit["rank"])
+                scores[hit["id"]]["score"] += rrf
             else:
-                scores[hit["id"]] = {"score": 1 / (RRF_K + hit["rank"]), "doc": hit["doc"], "meta": hit["meta"]}
+                scores[hit["id"]] = {"score": rrf, "doc": hit["doc"], "meta": hit["meta"]}
 
         sorted_hits = sorted(scores.items(), key=lambda x: x[1]["score"], reverse=True)
         return [
