@@ -125,6 +125,8 @@ def load_golden_csv(path: str | Path, limit: int | None = None) -> list[EvalRow]
             metadata_raw = raw_row["metadata"] or ""
             metadata = _parse_metadata(metadata_raw)
             difficulty = str(metadata.get("difficulty", "Unknown")).strip() or "Unknown"
+            if difficulty == "Unknown" and metadata.get("raw"):
+                difficulty = str(metadata["raw"]).strip() or "Unknown"
 
             rows.append(
                 EvalRow(
