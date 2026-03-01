@@ -1,0 +1,2419 @@
+{
+  "retrieval": {
+    "count": 126,
+    "doc": {
+      "count": 126,
+      "mrr@10": 0.754825,
+      "recall@1": 0.674603,
+      "ndcg@1": 0.674603,
+      "recall@3": 0.809524,
+      "ndcg@3": 0.753494,
+      "recall@5": 0.857143,
+      "ndcg@5": 0.772959,
+      "recall@10": 0.928571,
+      "ndcg@10": 0.796517
+    },
+    "page": {
+      "count": 101,
+      "mrr@10": 0.398664,
+      "recall@1": 0.306931,
+      "ndcg@1": 0.415842,
+      "recall@3": 0.465347,
+      "ndcg@3": 0.518445,
+      "recall@5": 0.514851,
+      "ndcg@5": 0.54486,
+      "recall@10": 0.613861,
+      "ndcg@10": 0.584581
+    }
+  },
+  "metric_notes": {
+    "doc_scoring": "Document metrics are scored only when gold_sources is present.",
+    "page_scoring": "Page metrics are scored only when gold_sources is present and at least one of page_range or anchor_text is present.",
+    "page_ndcg": "Page nDCG uses graded relevance where rel=2 is an exact page hit or anchor-text fallback hit, and rel=1 is the correct document with the wrong or unknown page."
+  },
+  "by_difficulty": {
+    "Easy": {
+      "count": 42,
+      "doc": {
+        "count": 42,
+        "mrr@10": 0.737793,
+        "recall@1": 0.642857,
+        "ndcg@1": 0.642857,
+        "recall@3": 0.785714,
+        "ndcg@3": 0.729873,
+        "recall@5": 0.880952,
+        "ndcg@5": 0.768803,
+        "recall@10": 0.928571,
+        "ndcg@10": 0.783906
+      },
+      "page": {
+        "count": 33,
+        "mrr@10": 0.476551,
+        "recall@1": 0.393939,
+        "ndcg@1": 0.469697,
+        "recall@3": 0.515152,
+        "ndcg@3": 0.545814,
+        "recall@5": 0.575758,
+        "ndcg@5": 0.577777,
+        "recall@10": 0.69697,
+        "ndcg@10": 0.622352
+      }
+    },
+    "Hard": {
+      "count": 42,
+      "doc": {
+        "count": 42,
+        "mrr@10": 0.76696,
+        "recall@1": 0.690476,
+        "ndcg@1": 0.690476,
+        "recall@3": 0.833333,
+        "ndcg@3": 0.771257,
+        "recall@5": 0.833333,
+        "ndcg@5": 0.771257,
+        "recall@10": 0.952381,
+        "ndcg@10": 0.810834
+      },
+      "page": {
+        "count": 33,
+        "mrr@10": 0.385017,
+        "recall@1": 0.272727,
+        "ndcg@1": 0.363636,
+        "recall@3": 0.454545,
+        "ndcg@3": 0.479616,
+        "recall@5": 0.545455,
+        "ndcg@5": 0.516112,
+        "recall@10": 0.69697,
+        "ndcg@10": 0.572136
+      }
+    },
+    "Medium": {
+      "count": 42,
+      "doc": {
+        "count": 42,
+        "mrr@10": 0.759722,
+        "recall@1": 0.690476,
+        "ndcg@1": 0.690476,
+        "recall@3": 0.809524,
+        "ndcg@3": 0.759352,
+        "recall@5": 0.857143,
+        "ndcg@5": 0.778817,
+        "recall@10": 0.904762,
+        "ndcg@10": 0.794809
+      },
+      "page": {
+        "count": 35,
+        "mrr@10": 0.338095,
+        "recall@1": 0.257143,
+        "ndcg@1": 0.414286,
+        "recall@3": 0.428571,
+        "ndcg@3": 0.529249,
+        "recall@5": 0.428571,
+        "ndcg@5": 0.540928,
+        "recall@10": 0.457143,
+        "ndcg@10": 0.560701
+      }
+    }
+  },
+  "by_gold_sources": {
+    "0002_27th-edition-of-The-Montreal-Protocol-India’s-Success-Story-2025.pdf": {
+      "count": 3,
+      "doc": {
+        "count": 3,
+        "mrr@10": 0.833333,
+        "recall@1": 0.666667,
+        "ndcg@1": 0.666667,
+        "recall@3": 1.0,
+        "ndcg@3": 0.876977,
+        "recall@5": 1.0,
+        "ndcg@5": 0.876977,
+        "recall@10": 1.0,
+        "ndcg@10": 0.876977
+      },
+      "page": {
+        "count": 3,
+        "mrr@10": 0.166667,
+        "recall@1": 0.0,
+        "ndcg@1": 0.333333,
+        "recall@3": 0.333333,
+        "ndcg@3": 0.543643,
+        "recall@5": 0.333333,
+        "ndcg@5": 0.543643,
+        "recall@10": 0.333333,
+        "ndcg@10": 0.543643
+      }
+    },
+    "0003_Study-on-Low-GWP-alternative-Technologies-for-Chillers-in-Large-Air-Conditioning-Building.pdf": {
+      "count": 3,
+      "doc": {
+        "count": 3,
+        "mrr@10": 1.0,
+        "recall@1": 1.0,
+        "ndcg@1": 1.0,
+        "recall@3": 1.0,
+        "ndcg@3": 1.0,
+        "recall@5": 1.0,
+        "ndcg@5": 1.0,
+        "recall@10": 1.0,
+        "ndcg@10": 1.0
+      },
+      "page": {
+        "count": 3,
+        "mrr@10": 0.066667,
+        "recall@1": 0.0,
+        "ndcg@1": 0.333333,
+        "recall@3": 0.0,
+        "ndcg@3": 0.333333,
+        "recall@5": 0.333333,
+        "ndcg@5": 0.462284,
+        "recall@10": 0.333333,
+        "ndcg@10": 0.462284
+      }
+    },
+    "0006_newsTRAC-4th-Edition-March-2025.pdf": {
+      "count": 3,
+      "doc": {
+        "count": 3,
+        "mrr@10": 1.0,
+        "recall@1": 1.0,
+        "ndcg@1": 1.0,
+        "recall@3": 1.0,
+        "ndcg@3": 1.0,
+        "recall@5": 1.0,
+        "ndcg@5": 1.0,
+        "recall@10": 1.0,
+        "ndcg@10": 1.0
+      },
+      "page": {
+        "count": 3,
+        "mrr@10": 1.0,
+        "recall@1": 1.0,
+        "ndcg@1": 1.0,
+        "recall@3": 1.0,
+        "ndcg@3": 1.0,
+        "recall@5": 1.0,
+        "ndcg@5": 1.0,
+        "recall@10": 1.0,
+        "ndcg@10": 1.0
+      }
+    },
+    "0016_8-Study-on-Public-Procurement-Policies-Hiring-Trained-and-certified-technicians.pdf": {
+      "count": 3,
+      "doc": {
+        "count": 3,
+        "mrr@10": 0.777778,
+        "recall@1": 0.666667,
+        "ndcg@1": 0.666667,
+        "recall@3": 1.0,
+        "ndcg@3": 0.833333,
+        "recall@5": 1.0,
+        "ndcg@5": 0.833333,
+        "recall@10": 1.0,
+        "ndcg@10": 0.833333
+      },
+      "page": {
+        "count": 3,
+        "mrr@10": 0.0,
+        "recall@1": 0.0,
+        "ndcg@1": 0.333333,
+        "recall@3": 0.0,
+        "ndcg@3": 0.416667,
+        "recall@5": 0.0,
+        "ndcg@5": 0.416667,
+        "recall@10": 0.0,
+        "ndcg@10": 0.416667
+      }
+    },
+    "0028_5-Booklet-for-sensitizing-building-community.pdf": {
+      "count": 3,
+      "doc": {
+        "count": 3,
+        "mrr@10": 0.037037,
+        "recall@1": 0.0,
+        "ndcg@1": 0.0,
+        "recall@3": 0.0,
+        "ndcg@3": 0.0,
+        "recall@5": 0.0,
+        "ndcg@5": 0.0,
+        "recall@10": 0.333333,
+        "ndcg@10": 0.100343
+      },
+      "page": {
+        "count": 3,
+        "mrr@10": 0.0,
+        "recall@1": 0.0,
+        "ndcg@1": 0.0,
+        "recall@3": 0.0,
+        "ndcg@3": 0.0,
+        "recall@5": 0.0,
+        "ndcg@5": 0.0,
+        "recall@10": 0.0,
+        "ndcg@10": 0.050172
+      }
+    },
+    "0034_HPMP-Poster-1.pdf": {
+      "count": 3,
+      "doc": {
+        "count": 3,
+        "mrr@10": 0.037037,
+        "recall@1": 0.0,
+        "ndcg@1": 0.0,
+        "recall@3": 0.0,
+        "ndcg@3": 0.0,
+        "recall@5": 0.0,
+        "ndcg@5": 0.0,
+        "recall@10": 0.333333,
+        "ndcg@10": 0.100343
+      },
+      "page": {
+        "count": 3,
+        "mrr@10": 0.037037,
+        "recall@1": 0.0,
+        "ndcg@1": 0.0,
+        "recall@3": 0.0,
+        "ndcg@3": 0.0,
+        "recall@5": 0.0,
+        "ndcg@5": 0.0,
+        "recall@10": 0.333333,
+        "ndcg@10": 0.100343
+      }
+    },
+    "0046_MC_Sr. Technician RACW Refrigeration Air Conditioning & Washing   Machine_V4.pdf": {
+      "count": 3,
+      "doc": {
+        "count": 3,
+        "mrr@10": 0.777778,
+        "recall@1": 0.666667,
+        "ndcg@1": 0.666667,
+        "recall@3": 1.0,
+        "ndcg@3": 0.833333,
+        "recall@5": 1.0,
+        "ndcg@5": 0.833333,
+        "recall@10": 1.0,
+        "ndcg@10": 0.833333
+      },
+      "page": {
+        "count": 3,
+        "mrr@10": 0.166667,
+        "recall@1": 0.0,
+        "ndcg@1": 0.0,
+        "recall@3": 0.333333,
+        "ndcg@3": 0.25,
+        "recall@5": 0.333333,
+        "ndcg@5": 0.25,
+        "recall@10": 0.666667,
+        "ndcg@10": 0.368736
+      }
+    },
+    "0047_ELE_Q3501_v4.0.pdf": {
+      "count": 3,
+      "doc": {
+        "count": 3,
+        "mrr@10": 1.0,
+        "recall@1": 1.0,
+        "ndcg@1": 1.0,
+        "recall@3": 1.0,
+        "ndcg@3": 1.0,
+        "recall@5": 1.0,
+        "ndcg@5": 1.0,
+        "recall@10": 1.0,
+        "ndcg@10": 1.0
+      },
+      "page": {
+        "count": 3,
+        "mrr@10": 0.833333,
+        "recall@1": 0.666667,
+        "ndcg@1": 0.666667,
+        "recall@3": 1.0,
+        "ndcg@3": 0.876977,
+        "recall@5": 1.0,
+        "ndcg@5": 0.876977,
+        "recall@10": 1.0,
+        "ndcg@10": 0.876977
+      }
+    },
+    "AHR EXPO Session on A2s and A3s_Combined slides.pdf": {
+      "count": 3,
+      "doc": {
+        "count": 3,
+        "mrr@10": 0.666667,
+        "recall@1": 0.666667,
+        "ndcg@1": 0.666667,
+        "recall@3": 0.666667,
+        "ndcg@3": 0.666667,
+        "recall@5": 0.666667,
+        "ndcg@5": 0.666667,
+        "recall@10": 0.666667,
+        "ndcg@10": 0.666667
+      },
+      "page": {
+        "count": 3,
+        "mrr@10": 0.5,
+        "recall@1": 0.333333,
+        "ndcg@1": 0.333333,
+        "recall@3": 0.666667,
+        "ndcg@3": 0.543643,
+        "recall@5": 0.666667,
+        "ndcg@5": 0.543643,
+        "recall@10": 0.666667,
+        "ndcg@10": 0.543643
+      }
+    },
+    "AR50F18D1LHNNA.pdf": {
+      "count": 3,
+      "doc": {
+        "count": 3,
+        "mrr@10": 0.388889,
+        "recall@1": 0.0,
+        "ndcg@1": 0.0,
+        "recall@3": 1.0,
+        "ndcg@3": 0.543643,
+        "recall@5": 1.0,
+        "ndcg@5": 0.543643,
+        "recall@10": 1.0,
+        "ndcg@10": 0.543643
+      },
+      "page": {
+        "count": 3,
+        "mrr@10": 0.277778,
+        "recall@1": 0.0,
+        "ndcg@1": 0.0,
+        "recall@3": 0.666667,
+        "ndcg@3": 0.46031,
+        "recall@5": 0.666667,
+        "ndcg@5": 0.46031,
+        "recall@10": 0.666667,
+        "ndcg@10": 0.46031
+      }
+    },
+    "AR50F19D1ZHNNA.pdf": {
+      "count": 3,
+      "doc": {
+        "count": 3,
+        "mrr@10": 0.833333,
+        "recall@1": 0.666667,
+        "ndcg@1": 0.666667,
+        "recall@3": 1.0,
+        "ndcg@3": 0.876977,
+        "recall@5": 1.0,
+        "ndcg@5": 0.876977,
+        "recall@10": 1.0,
+        "ndcg@10": 0.876977
+      },
+      "page": {
+        "count": 3,
+        "mrr@10": 0.388889,
+        "recall@1": 0.333333,
+        "ndcg@1": 0.5,
+        "recall@3": 0.333333,
+        "ndcg@3": 0.5,
+        "recall@5": 0.333333,
+        "ndcg@5": 0.5,
+        "recall@10": 0.666667,
+        "ndcg@10": 0.618736
+      }
+    },
+    "Booklet-on-Good-Servicing-Practices.pdf": {
+      "count": 3,
+      "doc": {
+        "count": 3,
+        "mrr@10": 0.666667,
+        "recall@1": 0.666667,
+        "ndcg@1": 0.666667,
+        "recall@3": 0.666667,
+        "ndcg@3": 0.666667,
+        "recall@5": 0.666667,
+        "ndcg@5": 0.666667,
+        "recall@10": 0.666667,
+        "ndcg@10": 0.666667
+      },
+      "page": {
+        "count": 1,
+        "mrr@10": 1.0,
+        "recall@1": 1.0,
+        "ndcg@1": 1.0,
+        "recall@3": 1.0,
+        "ndcg@3": 1.0,
+        "recall@5": 1.0,
+        "ndcg@5": 1.0,
+        "recall@10": 1.0,
+        "ndcg@10": 1.0
+      }
+    },
+    "CS-NU18VKYW series.pdf": {
+      "count": 3,
+      "doc": {
+        "count": 3,
+        "mrr@10": 0.733333,
+        "recall@1": 0.666667,
+        "ndcg@1": 0.666667,
+        "recall@3": 0.666667,
+        "ndcg@3": 0.666667,
+        "recall@5": 1.0,
+        "ndcg@5": 0.795618,
+        "recall@10": 1.0,
+        "ndcg@10": 0.795618
+      },
+      "page": {
+        "count": 3,
+        "mrr@10": 0.666667,
+        "recall@1": 0.666667,
+        "ndcg@1": 0.666667,
+        "recall@3": 0.666667,
+        "ndcg@3": 0.666667,
+        "recall@5": 0.666667,
+        "ndcg@5": 0.731142,
+        "recall@10": 0.666667,
+        "ndcg@10": 0.731142
+      }
+    },
+    "Capstone-EDA.pdf": {
+      "count": 3,
+      "doc": {
+        "count": 3,
+        "mrr@10": 0.714286,
+        "recall@1": 0.666667,
+        "ndcg@1": 0.666667,
+        "recall@3": 0.666667,
+        "ndcg@3": 0.666667,
+        "recall@5": 0.666667,
+        "ndcg@5": 0.666667,
+        "recall@10": 1.0,
+        "ndcg@10": 0.777778
+      },
+      "page": {
+        "count": 3,
+        "mrr@10": 0.714286,
+        "recall@1": 0.666667,
+        "ndcg@1": 0.666667,
+        "recall@3": 0.666667,
+        "ndcg@3": 0.666667,
+        "recall@5": 0.666667,
+        "ndcg@5": 0.666667,
+        "recall@10": 1.0,
+        "ndcg@10": 0.777778
+      }
+    },
+    "Daikin_catalog.pdf": {
+      "count": 3,
+      "doc": {
+        "count": 3,
+        "mrr@10": 1.0,
+        "recall@1": 1.0,
+        "ndcg@1": 1.0,
+        "recall@3": 1.0,
+        "ndcg@3": 1.0,
+        "recall@5": 1.0,
+        "ndcg@5": 1.0,
+        "recall@10": 1.0,
+        "ndcg@10": 1.0
+      },
+      "page": {
+        "count": 3,
+        "mrr@10": 0.055556,
+        "recall@1": 0.0,
+        "ndcg@1": 0.333333,
+        "recall@3": 0.0,
+        "ndcg@3": 0.333333,
+        "recall@5": 0.0,
+        "ndcg@5": 0.333333,
+        "recall@10": 0.333333,
+        "ndcg@10": 0.452069
+      }
+    },
+    "Experimental Evaluation of Refrigerant Leak Characteristics for Different HVAC&R Equipment Types.pdf": {
+      "count": 3,
+      "doc": {
+        "count": 3,
+        "mrr@10": 1.0,
+        "recall@1": 1.0,
+        "ndcg@1": 1.0,
+        "recall@3": 1.0,
+        "ndcg@3": 1.0,
+        "recall@5": 1.0,
+        "ndcg@5": 1.0,
+        "recall@10": 1.0,
+        "ndcg@10": 1.0
+      },
+      "page": {
+        "count": 3,
+        "mrr@10": 0.152778,
+        "recall@1": 0.0,
+        "ndcg@1": 0.166667,
+        "recall@3": 0.333333,
+        "ndcg@3": 0.333333,
+        "recall@5": 0.333333,
+        "ndcg@5": 0.333333,
+        "recall@10": 0.666667,
+        "ndcg@10": 0.438488
+      }
+    },
+    "Good_Service_Practices_and_Installation_of_ACs_Trainer_Handbook.pdf": {
+      "count": 3,
+      "doc": {
+        "count": 3,
+        "mrr@10": 0.5,
+        "recall@1": 0.333333,
+        "ndcg@1": 0.333333,
+        "recall@3": 0.666667,
+        "ndcg@3": 0.5,
+        "recall@5": 0.666667,
+        "ndcg@5": 0.5,
+        "recall@10": 1.0,
+        "ndcg@10": 0.618736
+      },
+      "page": {
+        "count": 3,
+        "mrr@10": 0.0,
+        "recall@1": 0.0,
+        "ndcg@1": 0.166667,
+        "recall@3": 0.0,
+        "ndcg@3": 0.25,
+        "recall@5": 0.0,
+        "ndcg@5": 0.25,
+        "recall@10": 0.0,
+        "ndcg@10": 0.309368
+      }
+    },
+    "HVAC_R_Systems_book.pdf": {
+      "count": 3,
+      "doc": {
+        "count": 3,
+        "mrr@10": 0.833333,
+        "recall@1": 0.666667,
+        "ndcg@1": 0.666667,
+        "recall@3": 1.0,
+        "ndcg@3": 0.876977,
+        "recall@5": 1.0,
+        "ndcg@5": 0.876977,
+        "recall@10": 1.0,
+        "ndcg@10": 0.876977
+      },
+      "page": {
+        "count": 0,
+        "mrr@10": null,
+        "recall@1": null,
+        "ndcg@1": null,
+        "recall@3": null,
+        "ndcg@3": null,
+        "recall@5": null,
+        "ndcg@5": null,
+        "recall@10": null,
+        "ndcg@10": null
+      }
+    },
+    "HVAC_Specification_2024.pdf": {
+      "count": 3,
+      "doc": {
+        "count": 3,
+        "mrr@10": 1.0,
+        "recall@1": 1.0,
+        "ndcg@1": 1.0,
+        "recall@3": 1.0,
+        "ndcg@3": 1.0,
+        "recall@5": 1.0,
+        "ndcg@5": 1.0,
+        "recall@10": 1.0,
+        "ndcg@10": 1.0
+      },
+      "page": {
+        "count": 3,
+        "mrr@10": 0.833333,
+        "recall@1": 0.666667,
+        "ndcg@1": 0.666667,
+        "recall@3": 1.0,
+        "ndcg@3": 0.876977,
+        "recall@5": 1.0,
+        "ndcg@5": 0.876977,
+        "recall@10": 1.0,
+        "ndcg@10": 0.876977
+      }
+    },
+    "Handbook-for-Flammable-Refrigerants-RAC-Technicians-06.11.19.pdf": {
+      "count": 3,
+      "doc": {
+        "count": 3,
+        "mrr@10": 0.708333,
+        "recall@1": 0.666667,
+        "ndcg@1": 0.666667,
+        "recall@3": 0.666667,
+        "ndcg@3": 0.666667,
+        "recall@5": 0.666667,
+        "ndcg@5": 0.666667,
+        "recall@10": 1.0,
+        "ndcg@10": 0.771822
+      },
+      "page": {
+        "count": 3,
+        "mrr@10": 0.37037,
+        "recall@1": 0.333333,
+        "ndcg@1": 0.5,
+        "recall@3": 0.333333,
+        "ndcg@3": 0.5,
+        "recall@5": 0.333333,
+        "ndcg@5": 0.5,
+        "recall@10": 0.666667,
+        "ndcg@10": 0.600343
+      }
+    },
+    "How Refrigerants Are Recycled.pdf": {
+      "count": 3,
+      "doc": {
+        "count": 3,
+        "mrr@10": 0.833333,
+        "recall@1": 0.666667,
+        "ndcg@1": 0.666667,
+        "recall@3": 1.0,
+        "ndcg@3": 0.876977,
+        "recall@5": 1.0,
+        "ndcg@5": 0.876977,
+        "recall@10": 1.0,
+        "ndcg@10": 0.876977
+      },
+      "page": {
+        "count": 3,
+        "mrr@10": 0.833333,
+        "recall@1": 0.666667,
+        "ndcg@1": 0.666667,
+        "recall@3": 1.0,
+        "ndcg@3": 0.876977,
+        "recall@5": 1.0,
+        "ndcg@5": 0.876977,
+        "recall@10": 1.0,
+        "ndcg@10": 0.876977
+      }
+    },
+    "ISO-5149-2.pdf": {
+      "count": 3,
+      "doc": {
+        "count": 3,
+        "mrr@10": 0.833333,
+        "recall@1": 0.666667,
+        "ndcg@1": 0.666667,
+        "recall@3": 1.0,
+        "ndcg@3": 0.876977,
+        "recall@5": 1.0,
+        "ndcg@5": 0.876977,
+        "recall@10": 1.0,
+        "ndcg@10": 0.876977
+      },
+      "page": {
+        "count": 0,
+        "mrr@10": null,
+        "recall@1": null,
+        "ndcg@1": null,
+        "recall@3": null,
+        "ndcg@3": null,
+        "recall@5": null,
+        "ndcg@5": null,
+        "recall@10": null,
+        "ndcg@10": null
+      }
+    },
+    "JTKJ50.pdf": {
+      "count": 3,
+      "doc": {
+        "count": 3,
+        "mrr@10": 1.0,
+        "recall@1": 1.0,
+        "ndcg@1": 1.0,
+        "recall@3": 1.0,
+        "ndcg@3": 1.0,
+        "recall@5": 1.0,
+        "ndcg@5": 1.0,
+        "recall@10": 1.0,
+        "ndcg@10": 1.0
+      },
+      "page": {
+        "count": 0,
+        "mrr@10": null,
+        "recall@1": null,
+        "ndcg@1": null,
+        "recall@3": null,
+        "ndcg@3": null,
+        "recall@5": null,
+        "ndcg@5": null,
+        "recall@10": null,
+        "ndcg@10": null
+      }
+    },
+    "MS-Q18YNZA.pdf": {
+      "count": 3,
+      "doc": {
+        "count": 3,
+        "mrr@10": 0.714286,
+        "recall@1": 0.666667,
+        "ndcg@1": 0.666667,
+        "recall@3": 0.666667,
+        "ndcg@3": 0.666667,
+        "recall@5": 0.666667,
+        "ndcg@5": 0.666667,
+        "recall@10": 1.0,
+        "ndcg@10": 0.777778
+      },
+      "page": {
+        "count": 0,
+        "mrr@10": null,
+        "recall@1": null,
+        "ndcg@1": null,
+        "recall@3": null,
+        "ndcg@3": null,
+        "recall@5": null,
+        "ndcg@5": null,
+        "recall@10": null,
+        "ndcg@10": null
+      }
+    },
+    "OSHA3836.pdf": {
+      "count": 3,
+      "doc": {
+        "count": 3,
+        "mrr@10": 1.0,
+        "recall@1": 1.0,
+        "ndcg@1": 1.0,
+        "recall@3": 1.0,
+        "ndcg@3": 1.0,
+        "recall@5": 1.0,
+        "ndcg@5": 1.0,
+        "recall@10": 1.0,
+        "ndcg@10": 1.0
+      },
+      "page": {
+        "count": 3,
+        "mrr@10": 0.833333,
+        "recall@1": 0.666667,
+        "ndcg@1": 0.666667,
+        "recall@3": 1.0,
+        "ndcg@3": 0.876977,
+        "recall@5": 1.0,
+        "ndcg@5": 0.876977,
+        "recall@10": 1.0,
+        "ndcg@10": 0.876977
+      }
+    },
+    "Ref. _ Air Conditioning Tech._CTS2.0_NSQF-4.pdf": {
+      "count": 3,
+      "doc": {
+        "count": 3,
+        "mrr@10": 1.0,
+        "recall@1": 1.0,
+        "ndcg@1": 1.0,
+        "recall@3": 1.0,
+        "ndcg@3": 1.0,
+        "recall@5": 1.0,
+        "ndcg@5": 1.0,
+        "recall@10": 1.0,
+        "ndcg@10": 1.0
+      },
+      "page": {
+        "count": 3,
+        "mrr@10": 0.111111,
+        "recall@1": 0.0,
+        "ndcg@1": 0.333333,
+        "recall@3": 0.333333,
+        "ndcg@3": 0.5,
+        "recall@5": 0.333333,
+        "ndcg@5": 0.5,
+        "recall@10": 0.333333,
+        "ndcg@10": 0.5
+      }
+    },
+    "SDS-R134a.pdf": {
+      "count": 3,
+      "doc": {
+        "count": 3,
+        "mrr@10": 1.0,
+        "recall@1": 1.0,
+        "ndcg@1": 1.0,
+        "recall@3": 1.0,
+        "ndcg@3": 1.0,
+        "recall@5": 1.0,
+        "ndcg@5": 1.0,
+        "recall@10": 1.0,
+        "ndcg@10": 1.0
+      },
+      "page": {
+        "count": 3,
+        "mrr@10": 0.527778,
+        "recall@1": 0.333333,
+        "ndcg@1": 0.333333,
+        "recall@3": 0.666667,
+        "ndcg@3": 0.5,
+        "recall@5": 1.0,
+        "ndcg@5": 0.643559,
+        "recall@10": 1.0,
+        "ndcg@10": 0.643559
+      }
+    },
+    "SDS-R22.pdf": {
+      "count": 3,
+      "doc": {
+        "count": 3,
+        "mrr@10": 1.0,
+        "recall@1": 1.0,
+        "ndcg@1": 1.0,
+        "recall@3": 1.0,
+        "ndcg@3": 1.0,
+        "recall@5": 1.0,
+        "ndcg@5": 1.0,
+        "recall@10": 1.0,
+        "ndcg@10": 1.0
+      },
+      "page": {
+        "count": 3,
+        "mrr@10": 0.666667,
+        "recall@1": 0.666667,
+        "ndcg@1": 0.833333,
+        "recall@3": 0.666667,
+        "ndcg@3": 0.833333,
+        "recall@5": 0.666667,
+        "ndcg@5": 0.833333,
+        "recall@10": 0.666667,
+        "ndcg@10": 0.833333
+      }
+    },
+    "SDS-R290-Propane.pdf": {
+      "count": 3,
+      "doc": {
+        "count": 3,
+        "mrr@10": 0.555556,
+        "recall@1": 0.333333,
+        "ndcg@1": 0.333333,
+        "recall@3": 0.666667,
+        "ndcg@3": 0.543643,
+        "recall@5": 0.666667,
+        "ndcg@5": 0.543643,
+        "recall@10": 1.0,
+        "ndcg@10": 0.662379
+      },
+      "page": {
+        "count": 3,
+        "mrr@10": 0.555556,
+        "recall@1": 0.333333,
+        "ndcg@1": 0.333333,
+        "recall@3": 0.666667,
+        "ndcg@3": 0.543643,
+        "recall@5": 0.666667,
+        "ndcg@5": 0.543643,
+        "recall@10": 1.0,
+        "ndcg@10": 0.662379
+      }
+    },
+    "TS-Q19ENZE.pdf": {
+      "count": 3,
+      "doc": {
+        "count": 3,
+        "mrr@10": 0.527778,
+        "recall@1": 0.333333,
+        "ndcg@1": 0.333333,
+        "recall@3": 0.666667,
+        "ndcg@3": 0.5,
+        "recall@5": 1.0,
+        "ndcg@5": 0.643559,
+        "recall@10": 1.0,
+        "ndcg@10": 0.643559
+      },
+      "page": {
+        "count": 2,
+        "mrr@10": 0.125,
+        "recall@1": 0.0,
+        "ndcg@1": 0.25,
+        "recall@3": 0.0,
+        "ndcg@3": 0.25,
+        "recall@5": 0.5,
+        "ndcg@5": 0.465338,
+        "recall@10": 0.5,
+        "ndcg@10": 0.465338
+      }
+    },
+    "Technician Handbook.pdf": {
+      "count": 3,
+      "doc": {
+        "count": 3,
+        "mrr@10": 0.375,
+        "recall@1": 0.0,
+        "ndcg@1": 0.0,
+        "recall@3": 0.666667,
+        "ndcg@3": 0.42062,
+        "recall@5": 0.666667,
+        "ndcg@5": 0.42062,
+        "recall@10": 1.0,
+        "ndcg@10": 0.525775
+      },
+      "page": {
+        "count": 2,
+        "mrr@10": 0.0,
+        "recall@1": 0.0,
+        "ndcg@1": 0.0,
+        "recall@3": 0.0,
+        "ndcg@3": 0.157732,
+        "recall@5": 0.0,
+        "ndcg@5": 0.157732,
+        "recall@10": 0.0,
+        "ndcg@10": 0.236598
+      }
+    },
+    "Trainer Handbook.pdf": {
+      "count": 3,
+      "doc": {
+        "count": 3,
+        "mrr@10": 0.722222,
+        "recall@1": 0.666667,
+        "ndcg@1": 0.666667,
+        "recall@3": 0.666667,
+        "ndcg@3": 0.666667,
+        "recall@5": 0.666667,
+        "ndcg@5": 0.666667,
+        "recall@10": 1.0,
+        "ndcg@10": 0.785402
+      },
+      "page": {
+        "count": 2,
+        "mrr@10": 0.0,
+        "recall@1": 0.0,
+        "ndcg@1": 0.25,
+        "recall@3": 0.0,
+        "ndcg@3": 0.25,
+        "recall@5": 0.0,
+        "ndcg@5": 0.25,
+        "recall@10": 0.0,
+        "ndcg@10": 0.339052
+      }
+    },
+    "breakout_refrigeran_managemen_leak_checking_101.pdf": {
+      "count": 3,
+      "doc": {
+        "count": 3,
+        "mrr@10": 1.0,
+        "recall@1": 1.0,
+        "ndcg@1": 1.0,
+        "recall@3": 1.0,
+        "ndcg@3": 1.0,
+        "recall@5": 1.0,
+        "ndcg@5": 1.0,
+        "recall@10": 1.0,
+        "ndcg@10": 1.0
+      },
+      "page": {
+        "count": 3,
+        "mrr@10": 0.333333,
+        "recall@1": 0.333333,
+        "ndcg@1": 0.666667,
+        "recall@3": 0.333333,
+        "ndcg@3": 0.666667,
+        "recall@5": 0.333333,
+        "ndcg@5": 0.666667,
+        "recall@10": 0.333333,
+        "ndcg@10": 0.666667
+      }
+    },
+    "challenges for rac in recovery.pdf": {
+      "count": 3,
+      "doc": {
+        "count": 3,
+        "mrr@10": 0.75,
+        "recall@1": 0.666667,
+        "ndcg@1": 0.666667,
+        "recall@3": 0.666667,
+        "ndcg@3": 0.666667,
+        "recall@5": 1.0,
+        "ndcg@5": 0.810226,
+        "recall@10": 1.0,
+        "ndcg@10": 0.810226
+      },
+      "page": {
+        "count": 3,
+        "mrr@10": 0.75,
+        "recall@1": 0.666667,
+        "ndcg@1": 0.666667,
+        "recall@3": 0.666667,
+        "ndcg@3": 0.666667,
+        "recall@5": 1.0,
+        "ndcg@5": 0.810226,
+        "recall@10": 1.0,
+        "ndcg@10": 0.810226
+      }
+    },
+    "compliance-requirements-for-refrigerant-recovery-june-24-2020.pdf": {
+      "count": 3,
+      "doc": {
+        "count": 3,
+        "mrr@10": 1.0,
+        "recall@1": 1.0,
+        "ndcg@1": 1.0,
+        "recall@3": 1.0,
+        "ndcg@3": 1.0,
+        "recall@5": 1.0,
+        "ndcg@5": 1.0,
+        "recall@10": 1.0,
+        "ndcg@10": 1.0
+      },
+      "page": {
+        "count": 3,
+        "mrr@10": 1.0,
+        "recall@1": 1.0,
+        "ndcg@1": 1.0,
+        "recall@3": 1.0,
+        "ndcg@3": 1.0,
+        "recall@5": 1.0,
+        "ndcg@5": 1.0,
+        "recall@10": 1.0,
+        "ndcg@10": 1.0
+      }
+    },
+    "hydrocarbon_manual-1999.pdf": {
+      "count": 3,
+      "doc": {
+        "count": 3,
+        "mrr@10": 0.4,
+        "recall@1": 0.0,
+        "ndcg@1": 0.0,
+        "recall@3": 0.666667,
+        "ndcg@3": 0.42062,
+        "recall@5": 1.0,
+        "ndcg@5": 0.549571,
+        "recall@10": 1.0,
+        "ndcg@10": 0.549571
+      },
+      "page": {
+        "count": 3,
+        "mrr@10": 0.108333,
+        "recall@1": 0.0,
+        "ndcg@1": 0.0,
+        "recall@3": 0.0,
+        "ndcg@3": 0.0,
+        "recall@5": 0.333333,
+        "ndcg@5": 0.193426,
+        "recall@10": 0.666667,
+        "ndcg@10": 0.298581
+      }
+    },
+    "is.15750.2006.pdf": {
+      "count": 3,
+      "doc": {
+        "count": 3,
+        "mrr@10": 1.0,
+        "recall@1": 1.0,
+        "ndcg@1": 1.0,
+        "recall@3": 1.0,
+        "ndcg@3": 1.0,
+        "recall@5": 1.0,
+        "ndcg@5": 1.0,
+        "recall@10": 1.0,
+        "ndcg@10": 1.0
+      },
+      "page": {
+        "count": 2,
+        "mrr@10": 0.083334,
+        "recall@1": 0.0,
+        "ndcg@1": 0.25,
+        "recall@3": 0.0,
+        "ndcg@3": 0.25,
+        "recall@5": 0.0,
+        "ndcg@5": 0.25,
+        "recall@10": 0.5,
+        "ndcg@10": 0.428103
+      }
+    },
+    "is.9902.2004.pdf": {
+      "count": 3,
+      "doc": {
+        "count": 3,
+        "mrr@10": 1.0,
+        "recall@1": 1.0,
+        "ndcg@1": 1.0,
+        "recall@3": 1.0,
+        "ndcg@3": 1.0,
+        "recall@5": 1.0,
+        "ndcg@5": 1.0,
+        "recall@10": 1.0,
+        "ndcg@10": 1.0
+      },
+      "page": {
+        "count": 3,
+        "mrr@10": 0.222222,
+        "recall@1": 0.0,
+        "ndcg@1": 0.166667,
+        "recall@3": 0.666667,
+        "ndcg@3": 0.5,
+        "recall@5": 0.666667,
+        "ndcg@5": 0.5,
+        "recall@10": 0.666667,
+        "ndcg@10": 0.5
+      }
+    },
+    "lloyd-AC-common.pdf": {
+      "count": 3,
+      "doc": {
+        "count": 3,
+        "mrr@10": 1.0,
+        "recall@1": 1.0,
+        "ndcg@1": 1.0,
+        "recall@3": 1.0,
+        "ndcg@3": 1.0,
+        "recall@5": 1.0,
+        "ndcg@5": 1.0,
+        "recall@10": 1.0,
+        "ndcg@10": 1.0
+      },
+      "page": {
+        "count": 0,
+        "mrr@10": null,
+        "recall@1": null,
+        "ndcg@1": null,
+        "recall@3": null,
+        "ndcg@3": null,
+        "recall@5": null,
+        "ndcg@5": null,
+        "recall@10": null,
+        "ndcg@10": null
+      }
+    },
+    "osha2254.pdf": {
+      "count": 3,
+      "doc": {
+        "count": 3,
+        "mrr@10": 0.483333,
+        "recall@1": 0.333333,
+        "ndcg@1": 0.333333,
+        "recall@3": 0.333333,
+        "ndcg@3": 0.333333,
+        "recall@5": 1.0,
+        "ndcg@5": 0.605843,
+        "recall@10": 1.0,
+        "ndcg@10": 0.605843
+      },
+      "page": {
+        "count": 2,
+        "mrr@10": 0.0,
+        "recall@1": 0.0,
+        "ndcg@1": 0.25,
+        "recall@3": 0.0,
+        "ndcg@3": 0.25,
+        "recall@5": 0.0,
+        "ndcg@5": 0.357669,
+        "recall@10": 0.0,
+        "ndcg@10": 0.357669
+      }
+    },
+    "r32-education-booklet-web.pdf": {
+      "count": 3,
+      "doc": {
+        "count": 3,
+        "mrr@10": 1.0,
+        "recall@1": 1.0,
+        "ndcg@1": 1.0,
+        "recall@3": 1.0,
+        "ndcg@3": 1.0,
+        "recall@5": 1.0,
+        "ndcg@5": 1.0,
+        "recall@10": 1.0,
+        "ndcg@10": 1.0
+      },
+      "page": {
+        "count": 3,
+        "mrr@10": 0.777778,
+        "recall@1": 0.666667,
+        "ndcg@1": 0.666667,
+        "recall@3": 1.0,
+        "ndcg@3": 0.833333,
+        "recall@5": 1.0,
+        "ndcg@5": 0.833333,
+        "recall@10": 1.0,
+        "ndcg@10": 0.833333
+      }
+    },
+    "small-business.pdf": {
+      "count": 3,
+      "doc": {
+        "count": 3,
+        "mrr@10": 0.0,
+        "recall@1": 0.0,
+        "ndcg@1": 0.0,
+        "recall@3": 0.0,
+        "ndcg@3": 0.0,
+        "recall@5": 0.0,
+        "ndcg@5": 0.0,
+        "recall@10": 0.0,
+        "ndcg@10": 0.0
+      },
+      "page": {
+        "count": 0,
+        "mrr@10": null,
+        "recall@1": null,
+        "ndcg@1": null,
+        "recall@3": null,
+        "ndcg@3": null,
+        "recall@5": null,
+        "ndcg@5": null,
+        "recall@10": null,
+        "ndcg@10": null
+      }
+    }
+  },
+  "by_gold_source": {
+    "0002_27th-edition-of-The-Montreal-Protocol-India’s-Success-Story-2025.pdf": {
+      "count": 3,
+      "doc": {
+        "count": 3,
+        "mrr@10": 0.833333,
+        "recall@1": 0.666667,
+        "ndcg@1": 0.666667,
+        "recall@3": 1.0,
+        "ndcg@3": 0.876977,
+        "recall@5": 1.0,
+        "ndcg@5": 0.876977,
+        "recall@10": 1.0,
+        "ndcg@10": 0.876977
+      },
+      "page": {
+        "count": 3,
+        "mrr@10": 0.166667,
+        "recall@1": 0.0,
+        "ndcg@1": 0.333333,
+        "recall@3": 0.333333,
+        "ndcg@3": 0.543643,
+        "recall@5": 0.333333,
+        "ndcg@5": 0.543643,
+        "recall@10": 0.333333,
+        "ndcg@10": 0.543643
+      }
+    },
+    "0003_Study-on-Low-GWP-alternative-Technologies-for-Chillers-in-Large-Air-Conditioning-Building.pdf": {
+      "count": 3,
+      "doc": {
+        "count": 3,
+        "mrr@10": 1.0,
+        "recall@1": 1.0,
+        "ndcg@1": 1.0,
+        "recall@3": 1.0,
+        "ndcg@3": 1.0,
+        "recall@5": 1.0,
+        "ndcg@5": 1.0,
+        "recall@10": 1.0,
+        "ndcg@10": 1.0
+      },
+      "page": {
+        "count": 3,
+        "mrr@10": 0.066667,
+        "recall@1": 0.0,
+        "ndcg@1": 0.333333,
+        "recall@3": 0.0,
+        "ndcg@3": 0.333333,
+        "recall@5": 0.333333,
+        "ndcg@5": 0.462284,
+        "recall@10": 0.333333,
+        "ndcg@10": 0.462284
+      }
+    },
+    "0006_newsTRAC-4th-Edition-March-2025.pdf": {
+      "count": 3,
+      "doc": {
+        "count": 3,
+        "mrr@10": 1.0,
+        "recall@1": 1.0,
+        "ndcg@1": 1.0,
+        "recall@3": 1.0,
+        "ndcg@3": 1.0,
+        "recall@5": 1.0,
+        "ndcg@5": 1.0,
+        "recall@10": 1.0,
+        "ndcg@10": 1.0
+      },
+      "page": {
+        "count": 3,
+        "mrr@10": 1.0,
+        "recall@1": 1.0,
+        "ndcg@1": 1.0,
+        "recall@3": 1.0,
+        "ndcg@3": 1.0,
+        "recall@5": 1.0,
+        "ndcg@5": 1.0,
+        "recall@10": 1.0,
+        "ndcg@10": 1.0
+      }
+    },
+    "0016_8-Study-on-Public-Procurement-Policies-Hiring-Trained-and-certified-technicians.pdf": {
+      "count": 3,
+      "doc": {
+        "count": 3,
+        "mrr@10": 0.777778,
+        "recall@1": 0.666667,
+        "ndcg@1": 0.666667,
+        "recall@3": 1.0,
+        "ndcg@3": 0.833333,
+        "recall@5": 1.0,
+        "ndcg@5": 0.833333,
+        "recall@10": 1.0,
+        "ndcg@10": 0.833333
+      },
+      "page": {
+        "count": 3,
+        "mrr@10": 0.0,
+        "recall@1": 0.0,
+        "ndcg@1": 0.333333,
+        "recall@3": 0.0,
+        "ndcg@3": 0.416667,
+        "recall@5": 0.0,
+        "ndcg@5": 0.416667,
+        "recall@10": 0.0,
+        "ndcg@10": 0.416667
+      }
+    },
+    "0028_5-Booklet-for-sensitizing-building-community.pdf": {
+      "count": 3,
+      "doc": {
+        "count": 3,
+        "mrr@10": 0.037037,
+        "recall@1": 0.0,
+        "ndcg@1": 0.0,
+        "recall@3": 0.0,
+        "ndcg@3": 0.0,
+        "recall@5": 0.0,
+        "ndcg@5": 0.0,
+        "recall@10": 0.333333,
+        "ndcg@10": 0.100343
+      },
+      "page": {
+        "count": 3,
+        "mrr@10": 0.0,
+        "recall@1": 0.0,
+        "ndcg@1": 0.0,
+        "recall@3": 0.0,
+        "ndcg@3": 0.0,
+        "recall@5": 0.0,
+        "ndcg@5": 0.0,
+        "recall@10": 0.0,
+        "ndcg@10": 0.050172
+      }
+    },
+    "0034_HPMP-Poster-1.pdf": {
+      "count": 3,
+      "doc": {
+        "count": 3,
+        "mrr@10": 0.037037,
+        "recall@1": 0.0,
+        "ndcg@1": 0.0,
+        "recall@3": 0.0,
+        "ndcg@3": 0.0,
+        "recall@5": 0.0,
+        "ndcg@5": 0.0,
+        "recall@10": 0.333333,
+        "ndcg@10": 0.100343
+      },
+      "page": {
+        "count": 3,
+        "mrr@10": 0.037037,
+        "recall@1": 0.0,
+        "ndcg@1": 0.0,
+        "recall@3": 0.0,
+        "ndcg@3": 0.0,
+        "recall@5": 0.0,
+        "ndcg@5": 0.0,
+        "recall@10": 0.333333,
+        "ndcg@10": 0.100343
+      }
+    },
+    "0046_MC_Sr. Technician RACW Refrigeration Air Conditioning & Washing   Machine_V4.pdf": {
+      "count": 3,
+      "doc": {
+        "count": 3,
+        "mrr@10": 0.777778,
+        "recall@1": 0.666667,
+        "ndcg@1": 0.666667,
+        "recall@3": 1.0,
+        "ndcg@3": 0.833333,
+        "recall@5": 1.0,
+        "ndcg@5": 0.833333,
+        "recall@10": 1.0,
+        "ndcg@10": 0.833333
+      },
+      "page": {
+        "count": 3,
+        "mrr@10": 0.166667,
+        "recall@1": 0.0,
+        "ndcg@1": 0.0,
+        "recall@3": 0.333333,
+        "ndcg@3": 0.25,
+        "recall@5": 0.333333,
+        "ndcg@5": 0.25,
+        "recall@10": 0.666667,
+        "ndcg@10": 0.368736
+      }
+    },
+    "0047_ELE_Q3501_v4.0.pdf": {
+      "count": 3,
+      "doc": {
+        "count": 3,
+        "mrr@10": 1.0,
+        "recall@1": 1.0,
+        "ndcg@1": 1.0,
+        "recall@3": 1.0,
+        "ndcg@3": 1.0,
+        "recall@5": 1.0,
+        "ndcg@5": 1.0,
+        "recall@10": 1.0,
+        "ndcg@10": 1.0
+      },
+      "page": {
+        "count": 3,
+        "mrr@10": 0.833333,
+        "recall@1": 0.666667,
+        "ndcg@1": 0.666667,
+        "recall@3": 1.0,
+        "ndcg@3": 0.876977,
+        "recall@5": 1.0,
+        "ndcg@5": 0.876977,
+        "recall@10": 1.0,
+        "ndcg@10": 0.876977
+      }
+    },
+    "AHR EXPO Session on A2s and A3s_Combined slides.pdf": {
+      "count": 3,
+      "doc": {
+        "count": 3,
+        "mrr@10": 0.666667,
+        "recall@1": 0.666667,
+        "ndcg@1": 0.666667,
+        "recall@3": 0.666667,
+        "ndcg@3": 0.666667,
+        "recall@5": 0.666667,
+        "ndcg@5": 0.666667,
+        "recall@10": 0.666667,
+        "ndcg@10": 0.666667
+      },
+      "page": {
+        "count": 3,
+        "mrr@10": 0.5,
+        "recall@1": 0.333333,
+        "ndcg@1": 0.333333,
+        "recall@3": 0.666667,
+        "ndcg@3": 0.543643,
+        "recall@5": 0.666667,
+        "ndcg@5": 0.543643,
+        "recall@10": 0.666667,
+        "ndcg@10": 0.543643
+      }
+    },
+    "AR50F18D1LHNNA.pdf": {
+      "count": 3,
+      "doc": {
+        "count": 3,
+        "mrr@10": 0.388889,
+        "recall@1": 0.0,
+        "ndcg@1": 0.0,
+        "recall@3": 1.0,
+        "ndcg@3": 0.543643,
+        "recall@5": 1.0,
+        "ndcg@5": 0.543643,
+        "recall@10": 1.0,
+        "ndcg@10": 0.543643
+      },
+      "page": {
+        "count": 3,
+        "mrr@10": 0.277778,
+        "recall@1": 0.0,
+        "ndcg@1": 0.0,
+        "recall@3": 0.666667,
+        "ndcg@3": 0.46031,
+        "recall@5": 0.666667,
+        "ndcg@5": 0.46031,
+        "recall@10": 0.666667,
+        "ndcg@10": 0.46031
+      }
+    },
+    "AR50F19D1ZHNNA.pdf": {
+      "count": 3,
+      "doc": {
+        "count": 3,
+        "mrr@10": 0.833333,
+        "recall@1": 0.666667,
+        "ndcg@1": 0.666667,
+        "recall@3": 1.0,
+        "ndcg@3": 0.876977,
+        "recall@5": 1.0,
+        "ndcg@5": 0.876977,
+        "recall@10": 1.0,
+        "ndcg@10": 0.876977
+      },
+      "page": {
+        "count": 3,
+        "mrr@10": 0.388889,
+        "recall@1": 0.333333,
+        "ndcg@1": 0.5,
+        "recall@3": 0.333333,
+        "ndcg@3": 0.5,
+        "recall@5": 0.333333,
+        "ndcg@5": 0.5,
+        "recall@10": 0.666667,
+        "ndcg@10": 0.618736
+      }
+    },
+    "Booklet-on-Good-Servicing-Practices.pdf": {
+      "count": 3,
+      "doc": {
+        "count": 3,
+        "mrr@10": 0.666667,
+        "recall@1": 0.666667,
+        "ndcg@1": 0.666667,
+        "recall@3": 0.666667,
+        "ndcg@3": 0.666667,
+        "recall@5": 0.666667,
+        "ndcg@5": 0.666667,
+        "recall@10": 0.666667,
+        "ndcg@10": 0.666667
+      },
+      "page": {
+        "count": 1,
+        "mrr@10": 1.0,
+        "recall@1": 1.0,
+        "ndcg@1": 1.0,
+        "recall@3": 1.0,
+        "ndcg@3": 1.0,
+        "recall@5": 1.0,
+        "ndcg@5": 1.0,
+        "recall@10": 1.0,
+        "ndcg@10": 1.0
+      }
+    },
+    "CS-NU18VKYW series.pdf": {
+      "count": 3,
+      "doc": {
+        "count": 3,
+        "mrr@10": 0.733333,
+        "recall@1": 0.666667,
+        "ndcg@1": 0.666667,
+        "recall@3": 0.666667,
+        "ndcg@3": 0.666667,
+        "recall@5": 1.0,
+        "ndcg@5": 0.795618,
+        "recall@10": 1.0,
+        "ndcg@10": 0.795618
+      },
+      "page": {
+        "count": 3,
+        "mrr@10": 0.666667,
+        "recall@1": 0.666667,
+        "ndcg@1": 0.666667,
+        "recall@3": 0.666667,
+        "ndcg@3": 0.666667,
+        "recall@5": 0.666667,
+        "ndcg@5": 0.731142,
+        "recall@10": 0.666667,
+        "ndcg@10": 0.731142
+      }
+    },
+    "Capstone-EDA.pdf": {
+      "count": 3,
+      "doc": {
+        "count": 3,
+        "mrr@10": 0.714286,
+        "recall@1": 0.666667,
+        "ndcg@1": 0.666667,
+        "recall@3": 0.666667,
+        "ndcg@3": 0.666667,
+        "recall@5": 0.666667,
+        "ndcg@5": 0.666667,
+        "recall@10": 1.0,
+        "ndcg@10": 0.777778
+      },
+      "page": {
+        "count": 3,
+        "mrr@10": 0.714286,
+        "recall@1": 0.666667,
+        "ndcg@1": 0.666667,
+        "recall@3": 0.666667,
+        "ndcg@3": 0.666667,
+        "recall@5": 0.666667,
+        "ndcg@5": 0.666667,
+        "recall@10": 1.0,
+        "ndcg@10": 0.777778
+      }
+    },
+    "Daikin_catalog.pdf": {
+      "count": 3,
+      "doc": {
+        "count": 3,
+        "mrr@10": 1.0,
+        "recall@1": 1.0,
+        "ndcg@1": 1.0,
+        "recall@3": 1.0,
+        "ndcg@3": 1.0,
+        "recall@5": 1.0,
+        "ndcg@5": 1.0,
+        "recall@10": 1.0,
+        "ndcg@10": 1.0
+      },
+      "page": {
+        "count": 3,
+        "mrr@10": 0.055556,
+        "recall@1": 0.0,
+        "ndcg@1": 0.333333,
+        "recall@3": 0.0,
+        "ndcg@3": 0.333333,
+        "recall@5": 0.0,
+        "ndcg@5": 0.333333,
+        "recall@10": 0.333333,
+        "ndcg@10": 0.452069
+      }
+    },
+    "Experimental Evaluation of Refrigerant Leak Characteristics for Different HVAC&R Equipment Types.pdf": {
+      "count": 3,
+      "doc": {
+        "count": 3,
+        "mrr@10": 1.0,
+        "recall@1": 1.0,
+        "ndcg@1": 1.0,
+        "recall@3": 1.0,
+        "ndcg@3": 1.0,
+        "recall@5": 1.0,
+        "ndcg@5": 1.0,
+        "recall@10": 1.0,
+        "ndcg@10": 1.0
+      },
+      "page": {
+        "count": 3,
+        "mrr@10": 0.152778,
+        "recall@1": 0.0,
+        "ndcg@1": 0.166667,
+        "recall@3": 0.333333,
+        "ndcg@3": 0.333333,
+        "recall@5": 0.333333,
+        "ndcg@5": 0.333333,
+        "recall@10": 0.666667,
+        "ndcg@10": 0.438488
+      }
+    },
+    "Good_Service_Practices_and_Installation_of_ACs_Trainer_Handbook.pdf": {
+      "count": 3,
+      "doc": {
+        "count": 3,
+        "mrr@10": 0.5,
+        "recall@1": 0.333333,
+        "ndcg@1": 0.333333,
+        "recall@3": 0.666667,
+        "ndcg@3": 0.5,
+        "recall@5": 0.666667,
+        "ndcg@5": 0.5,
+        "recall@10": 1.0,
+        "ndcg@10": 0.618736
+      },
+      "page": {
+        "count": 3,
+        "mrr@10": 0.0,
+        "recall@1": 0.0,
+        "ndcg@1": 0.166667,
+        "recall@3": 0.0,
+        "ndcg@3": 0.25,
+        "recall@5": 0.0,
+        "ndcg@5": 0.25,
+        "recall@10": 0.0,
+        "ndcg@10": 0.309368
+      }
+    },
+    "HVAC_R_Systems_book.pdf": {
+      "count": 3,
+      "doc": {
+        "count": 3,
+        "mrr@10": 0.833333,
+        "recall@1": 0.666667,
+        "ndcg@1": 0.666667,
+        "recall@3": 1.0,
+        "ndcg@3": 0.876977,
+        "recall@5": 1.0,
+        "ndcg@5": 0.876977,
+        "recall@10": 1.0,
+        "ndcg@10": 0.876977
+      },
+      "page": {
+        "count": 0,
+        "mrr@10": null,
+        "recall@1": null,
+        "ndcg@1": null,
+        "recall@3": null,
+        "ndcg@3": null,
+        "recall@5": null,
+        "ndcg@5": null,
+        "recall@10": null,
+        "ndcg@10": null
+      }
+    },
+    "HVAC_Specification_2024.pdf": {
+      "count": 3,
+      "doc": {
+        "count": 3,
+        "mrr@10": 1.0,
+        "recall@1": 1.0,
+        "ndcg@1": 1.0,
+        "recall@3": 1.0,
+        "ndcg@3": 1.0,
+        "recall@5": 1.0,
+        "ndcg@5": 1.0,
+        "recall@10": 1.0,
+        "ndcg@10": 1.0
+      },
+      "page": {
+        "count": 3,
+        "mrr@10": 0.833333,
+        "recall@1": 0.666667,
+        "ndcg@1": 0.666667,
+        "recall@3": 1.0,
+        "ndcg@3": 0.876977,
+        "recall@5": 1.0,
+        "ndcg@5": 0.876977,
+        "recall@10": 1.0,
+        "ndcg@10": 0.876977
+      }
+    },
+    "Handbook-for-Flammable-Refrigerants-RAC-Technicians-06.11.19.pdf": {
+      "count": 3,
+      "doc": {
+        "count": 3,
+        "mrr@10": 0.708333,
+        "recall@1": 0.666667,
+        "ndcg@1": 0.666667,
+        "recall@3": 0.666667,
+        "ndcg@3": 0.666667,
+        "recall@5": 0.666667,
+        "ndcg@5": 0.666667,
+        "recall@10": 1.0,
+        "ndcg@10": 0.771822
+      },
+      "page": {
+        "count": 3,
+        "mrr@10": 0.37037,
+        "recall@1": 0.333333,
+        "ndcg@1": 0.5,
+        "recall@3": 0.333333,
+        "ndcg@3": 0.5,
+        "recall@5": 0.333333,
+        "ndcg@5": 0.5,
+        "recall@10": 0.666667,
+        "ndcg@10": 0.600343
+      }
+    },
+    "How Refrigerants Are Recycled.pdf": {
+      "count": 3,
+      "doc": {
+        "count": 3,
+        "mrr@10": 0.833333,
+        "recall@1": 0.666667,
+        "ndcg@1": 0.666667,
+        "recall@3": 1.0,
+        "ndcg@3": 0.876977,
+        "recall@5": 1.0,
+        "ndcg@5": 0.876977,
+        "recall@10": 1.0,
+        "ndcg@10": 0.876977
+      },
+      "page": {
+        "count": 3,
+        "mrr@10": 0.833333,
+        "recall@1": 0.666667,
+        "ndcg@1": 0.666667,
+        "recall@3": 1.0,
+        "ndcg@3": 0.876977,
+        "recall@5": 1.0,
+        "ndcg@5": 0.876977,
+        "recall@10": 1.0,
+        "ndcg@10": 0.876977
+      }
+    },
+    "ISO-5149-2.pdf": {
+      "count": 3,
+      "doc": {
+        "count": 3,
+        "mrr@10": 0.833333,
+        "recall@1": 0.666667,
+        "ndcg@1": 0.666667,
+        "recall@3": 1.0,
+        "ndcg@3": 0.876977,
+        "recall@5": 1.0,
+        "ndcg@5": 0.876977,
+        "recall@10": 1.0,
+        "ndcg@10": 0.876977
+      },
+      "page": {
+        "count": 0,
+        "mrr@10": null,
+        "recall@1": null,
+        "ndcg@1": null,
+        "recall@3": null,
+        "ndcg@3": null,
+        "recall@5": null,
+        "ndcg@5": null,
+        "recall@10": null,
+        "ndcg@10": null
+      }
+    },
+    "JTKJ50.pdf": {
+      "count": 3,
+      "doc": {
+        "count": 3,
+        "mrr@10": 1.0,
+        "recall@1": 1.0,
+        "ndcg@1": 1.0,
+        "recall@3": 1.0,
+        "ndcg@3": 1.0,
+        "recall@5": 1.0,
+        "ndcg@5": 1.0,
+        "recall@10": 1.0,
+        "ndcg@10": 1.0
+      },
+      "page": {
+        "count": 0,
+        "mrr@10": null,
+        "recall@1": null,
+        "ndcg@1": null,
+        "recall@3": null,
+        "ndcg@3": null,
+        "recall@5": null,
+        "ndcg@5": null,
+        "recall@10": null,
+        "ndcg@10": null
+      }
+    },
+    "MS-Q18YNZA.pdf": {
+      "count": 3,
+      "doc": {
+        "count": 3,
+        "mrr@10": 0.714286,
+        "recall@1": 0.666667,
+        "ndcg@1": 0.666667,
+        "recall@3": 0.666667,
+        "ndcg@3": 0.666667,
+        "recall@5": 0.666667,
+        "ndcg@5": 0.666667,
+        "recall@10": 1.0,
+        "ndcg@10": 0.777778
+      },
+      "page": {
+        "count": 0,
+        "mrr@10": null,
+        "recall@1": null,
+        "ndcg@1": null,
+        "recall@3": null,
+        "ndcg@3": null,
+        "recall@5": null,
+        "ndcg@5": null,
+        "recall@10": null,
+        "ndcg@10": null
+      }
+    },
+    "OSHA3836.pdf": {
+      "count": 3,
+      "doc": {
+        "count": 3,
+        "mrr@10": 1.0,
+        "recall@1": 1.0,
+        "ndcg@1": 1.0,
+        "recall@3": 1.0,
+        "ndcg@3": 1.0,
+        "recall@5": 1.0,
+        "ndcg@5": 1.0,
+        "recall@10": 1.0,
+        "ndcg@10": 1.0
+      },
+      "page": {
+        "count": 3,
+        "mrr@10": 0.833333,
+        "recall@1": 0.666667,
+        "ndcg@1": 0.666667,
+        "recall@3": 1.0,
+        "ndcg@3": 0.876977,
+        "recall@5": 1.0,
+        "ndcg@5": 0.876977,
+        "recall@10": 1.0,
+        "ndcg@10": 0.876977
+      }
+    },
+    "Ref. _ Air Conditioning Tech._CTS2.0_NSQF-4.pdf": {
+      "count": 3,
+      "doc": {
+        "count": 3,
+        "mrr@10": 1.0,
+        "recall@1": 1.0,
+        "ndcg@1": 1.0,
+        "recall@3": 1.0,
+        "ndcg@3": 1.0,
+        "recall@5": 1.0,
+        "ndcg@5": 1.0,
+        "recall@10": 1.0,
+        "ndcg@10": 1.0
+      },
+      "page": {
+        "count": 3,
+        "mrr@10": 0.111111,
+        "recall@1": 0.0,
+        "ndcg@1": 0.333333,
+        "recall@3": 0.333333,
+        "ndcg@3": 0.5,
+        "recall@5": 0.333333,
+        "ndcg@5": 0.5,
+        "recall@10": 0.333333,
+        "ndcg@10": 0.5
+      }
+    },
+    "SDS-R134a.pdf": {
+      "count": 3,
+      "doc": {
+        "count": 3,
+        "mrr@10": 1.0,
+        "recall@1": 1.0,
+        "ndcg@1": 1.0,
+        "recall@3": 1.0,
+        "ndcg@3": 1.0,
+        "recall@5": 1.0,
+        "ndcg@5": 1.0,
+        "recall@10": 1.0,
+        "ndcg@10": 1.0
+      },
+      "page": {
+        "count": 3,
+        "mrr@10": 0.527778,
+        "recall@1": 0.333333,
+        "ndcg@1": 0.333333,
+        "recall@3": 0.666667,
+        "ndcg@3": 0.5,
+        "recall@5": 1.0,
+        "ndcg@5": 0.643559,
+        "recall@10": 1.0,
+        "ndcg@10": 0.643559
+      }
+    },
+    "SDS-R22.pdf": {
+      "count": 3,
+      "doc": {
+        "count": 3,
+        "mrr@10": 1.0,
+        "recall@1": 1.0,
+        "ndcg@1": 1.0,
+        "recall@3": 1.0,
+        "ndcg@3": 1.0,
+        "recall@5": 1.0,
+        "ndcg@5": 1.0,
+        "recall@10": 1.0,
+        "ndcg@10": 1.0
+      },
+      "page": {
+        "count": 3,
+        "mrr@10": 0.666667,
+        "recall@1": 0.666667,
+        "ndcg@1": 0.833333,
+        "recall@3": 0.666667,
+        "ndcg@3": 0.833333,
+        "recall@5": 0.666667,
+        "ndcg@5": 0.833333,
+        "recall@10": 0.666667,
+        "ndcg@10": 0.833333
+      }
+    },
+    "SDS-R290-Propane.pdf": {
+      "count": 3,
+      "doc": {
+        "count": 3,
+        "mrr@10": 0.555556,
+        "recall@1": 0.333333,
+        "ndcg@1": 0.333333,
+        "recall@3": 0.666667,
+        "ndcg@3": 0.543643,
+        "recall@5": 0.666667,
+        "ndcg@5": 0.543643,
+        "recall@10": 1.0,
+        "ndcg@10": 0.662379
+      },
+      "page": {
+        "count": 3,
+        "mrr@10": 0.555556,
+        "recall@1": 0.333333,
+        "ndcg@1": 0.333333,
+        "recall@3": 0.666667,
+        "ndcg@3": 0.543643,
+        "recall@5": 0.666667,
+        "ndcg@5": 0.543643,
+        "recall@10": 1.0,
+        "ndcg@10": 0.662379
+      }
+    },
+    "TS-Q19ENZE.pdf": {
+      "count": 3,
+      "doc": {
+        "count": 3,
+        "mrr@10": 0.527778,
+        "recall@1": 0.333333,
+        "ndcg@1": 0.333333,
+        "recall@3": 0.666667,
+        "ndcg@3": 0.5,
+        "recall@5": 1.0,
+        "ndcg@5": 0.643559,
+        "recall@10": 1.0,
+        "ndcg@10": 0.643559
+      },
+      "page": {
+        "count": 2,
+        "mrr@10": 0.125,
+        "recall@1": 0.0,
+        "ndcg@1": 0.25,
+        "recall@3": 0.0,
+        "ndcg@3": 0.25,
+        "recall@5": 0.5,
+        "ndcg@5": 0.465338,
+        "recall@10": 0.5,
+        "ndcg@10": 0.465338
+      }
+    },
+    "Technician Handbook.pdf": {
+      "count": 3,
+      "doc": {
+        "count": 3,
+        "mrr@10": 0.375,
+        "recall@1": 0.0,
+        "ndcg@1": 0.0,
+        "recall@3": 0.666667,
+        "ndcg@3": 0.42062,
+        "recall@5": 0.666667,
+        "ndcg@5": 0.42062,
+        "recall@10": 1.0,
+        "ndcg@10": 0.525775
+      },
+      "page": {
+        "count": 2,
+        "mrr@10": 0.0,
+        "recall@1": 0.0,
+        "ndcg@1": 0.0,
+        "recall@3": 0.0,
+        "ndcg@3": 0.157732,
+        "recall@5": 0.0,
+        "ndcg@5": 0.157732,
+        "recall@10": 0.0,
+        "ndcg@10": 0.236598
+      }
+    },
+    "Trainer Handbook.pdf": {
+      "count": 3,
+      "doc": {
+        "count": 3,
+        "mrr@10": 0.722222,
+        "recall@1": 0.666667,
+        "ndcg@1": 0.666667,
+        "recall@3": 0.666667,
+        "ndcg@3": 0.666667,
+        "recall@5": 0.666667,
+        "ndcg@5": 0.666667,
+        "recall@10": 1.0,
+        "ndcg@10": 0.785402
+      },
+      "page": {
+        "count": 2,
+        "mrr@10": 0.0,
+        "recall@1": 0.0,
+        "ndcg@1": 0.25,
+        "recall@3": 0.0,
+        "ndcg@3": 0.25,
+        "recall@5": 0.0,
+        "ndcg@5": 0.25,
+        "recall@10": 0.0,
+        "ndcg@10": 0.339052
+      }
+    },
+    "breakout_refrigeran_managemen_leak_checking_101.pdf": {
+      "count": 3,
+      "doc": {
+        "count": 3,
+        "mrr@10": 1.0,
+        "recall@1": 1.0,
+        "ndcg@1": 1.0,
+        "recall@3": 1.0,
+        "ndcg@3": 1.0,
+        "recall@5": 1.0,
+        "ndcg@5": 1.0,
+        "recall@10": 1.0,
+        "ndcg@10": 1.0
+      },
+      "page": {
+        "count": 3,
+        "mrr@10": 0.333333,
+        "recall@1": 0.333333,
+        "ndcg@1": 0.666667,
+        "recall@3": 0.333333,
+        "ndcg@3": 0.666667,
+        "recall@5": 0.333333,
+        "ndcg@5": 0.666667,
+        "recall@10": 0.333333,
+        "ndcg@10": 0.666667
+      }
+    },
+    "challenges for rac in recovery.pdf": {
+      "count": 3,
+      "doc": {
+        "count": 3,
+        "mrr@10": 0.75,
+        "recall@1": 0.666667,
+        "ndcg@1": 0.666667,
+        "recall@3": 0.666667,
+        "ndcg@3": 0.666667,
+        "recall@5": 1.0,
+        "ndcg@5": 0.810226,
+        "recall@10": 1.0,
+        "ndcg@10": 0.810226
+      },
+      "page": {
+        "count": 3,
+        "mrr@10": 0.75,
+        "recall@1": 0.666667,
+        "ndcg@1": 0.666667,
+        "recall@3": 0.666667,
+        "ndcg@3": 0.666667,
+        "recall@5": 1.0,
+        "ndcg@5": 0.810226,
+        "recall@10": 1.0,
+        "ndcg@10": 0.810226
+      }
+    },
+    "compliance-requirements-for-refrigerant-recovery-june-24-2020.pdf": {
+      "count": 3,
+      "doc": {
+        "count": 3,
+        "mrr@10": 1.0,
+        "recall@1": 1.0,
+        "ndcg@1": 1.0,
+        "recall@3": 1.0,
+        "ndcg@3": 1.0,
+        "recall@5": 1.0,
+        "ndcg@5": 1.0,
+        "recall@10": 1.0,
+        "ndcg@10": 1.0
+      },
+      "page": {
+        "count": 3,
+        "mrr@10": 1.0,
+        "recall@1": 1.0,
+        "ndcg@1": 1.0,
+        "recall@3": 1.0,
+        "ndcg@3": 1.0,
+        "recall@5": 1.0,
+        "ndcg@5": 1.0,
+        "recall@10": 1.0,
+        "ndcg@10": 1.0
+      }
+    },
+    "hydrocarbon_manual-1999.pdf": {
+      "count": 3,
+      "doc": {
+        "count": 3,
+        "mrr@10": 0.4,
+        "recall@1": 0.0,
+        "ndcg@1": 0.0,
+        "recall@3": 0.666667,
+        "ndcg@3": 0.42062,
+        "recall@5": 1.0,
+        "ndcg@5": 0.549571,
+        "recall@10": 1.0,
+        "ndcg@10": 0.549571
+      },
+      "page": {
+        "count": 3,
+        "mrr@10": 0.108333,
+        "recall@1": 0.0,
+        "ndcg@1": 0.0,
+        "recall@3": 0.0,
+        "ndcg@3": 0.0,
+        "recall@5": 0.333333,
+        "ndcg@5": 0.193426,
+        "recall@10": 0.666667,
+        "ndcg@10": 0.298581
+      }
+    },
+    "is.15750.2006.pdf": {
+      "count": 3,
+      "doc": {
+        "count": 3,
+        "mrr@10": 1.0,
+        "recall@1": 1.0,
+        "ndcg@1": 1.0,
+        "recall@3": 1.0,
+        "ndcg@3": 1.0,
+        "recall@5": 1.0,
+        "ndcg@5": 1.0,
+        "recall@10": 1.0,
+        "ndcg@10": 1.0
+      },
+      "page": {
+        "count": 2,
+        "mrr@10": 0.083334,
+        "recall@1": 0.0,
+        "ndcg@1": 0.25,
+        "recall@3": 0.0,
+        "ndcg@3": 0.25,
+        "recall@5": 0.0,
+        "ndcg@5": 0.25,
+        "recall@10": 0.5,
+        "ndcg@10": 0.428103
+      }
+    },
+    "is.9902.2004.pdf": {
+      "count": 3,
+      "doc": {
+        "count": 3,
+        "mrr@10": 1.0,
+        "recall@1": 1.0,
+        "ndcg@1": 1.0,
+        "recall@3": 1.0,
+        "ndcg@3": 1.0,
+        "recall@5": 1.0,
+        "ndcg@5": 1.0,
+        "recall@10": 1.0,
+        "ndcg@10": 1.0
+      },
+      "page": {
+        "count": 3,
+        "mrr@10": 0.222222,
+        "recall@1": 0.0,
+        "ndcg@1": 0.166667,
+        "recall@3": 0.666667,
+        "ndcg@3": 0.5,
+        "recall@5": 0.666667,
+        "ndcg@5": 0.5,
+        "recall@10": 0.666667,
+        "ndcg@10": 0.5
+      }
+    },
+    "lloyd-AC-common.pdf": {
+      "count": 3,
+      "doc": {
+        "count": 3,
+        "mrr@10": 1.0,
+        "recall@1": 1.0,
+        "ndcg@1": 1.0,
+        "recall@3": 1.0,
+        "ndcg@3": 1.0,
+        "recall@5": 1.0,
+        "ndcg@5": 1.0,
+        "recall@10": 1.0,
+        "ndcg@10": 1.0
+      },
+      "page": {
+        "count": 0,
+        "mrr@10": null,
+        "recall@1": null,
+        "ndcg@1": null,
+        "recall@3": null,
+        "ndcg@3": null,
+        "recall@5": null,
+        "ndcg@5": null,
+        "recall@10": null,
+        "ndcg@10": null
+      }
+    },
+    "osha2254.pdf": {
+      "count": 3,
+      "doc": {
+        "count": 3,
+        "mrr@10": 0.483333,
+        "recall@1": 0.333333,
+        "ndcg@1": 0.333333,
+        "recall@3": 0.333333,
+        "ndcg@3": 0.333333,
+        "recall@5": 1.0,
+        "ndcg@5": 0.605843,
+        "recall@10": 1.0,
+        "ndcg@10": 0.605843
+      },
+      "page": {
+        "count": 2,
+        "mrr@10": 0.0,
+        "recall@1": 0.0,
+        "ndcg@1": 0.25,
+        "recall@3": 0.0,
+        "ndcg@3": 0.25,
+        "recall@5": 0.0,
+        "ndcg@5": 0.357669,
+        "recall@10": 0.0,
+        "ndcg@10": 0.357669
+      }
+    },
+    "r32-education-booklet-web.pdf": {
+      "count": 3,
+      "doc": {
+        "count": 3,
+        "mrr@10": 1.0,
+        "recall@1": 1.0,
+        "ndcg@1": 1.0,
+        "recall@3": 1.0,
+        "ndcg@3": 1.0,
+        "recall@5": 1.0,
+        "ndcg@5": 1.0,
+        "recall@10": 1.0,
+        "ndcg@10": 1.0
+      },
+      "page": {
+        "count": 3,
+        "mrr@10": 0.777778,
+        "recall@1": 0.666667,
+        "ndcg@1": 0.666667,
+        "recall@3": 1.0,
+        "ndcg@3": 0.833333,
+        "recall@5": 1.0,
+        "ndcg@5": 0.833333,
+        "recall@10": 1.0,
+        "ndcg@10": 0.833333
+      }
+    },
+    "small-business.pdf": {
+      "count": 3,
+      "doc": {
+        "count": 3,
+        "mrr@10": 0.0,
+        "recall@1": 0.0,
+        "ndcg@1": 0.0,
+        "recall@3": 0.0,
+        "ndcg@3": 0.0,
+        "recall@5": 0.0,
+        "ndcg@5": 0.0,
+        "recall@10": 0.0,
+        "ndcg@10": 0.0
+      },
+      "page": {
+        "count": 0,
+        "mrr@10": null,
+        "recall@1": null,
+        "ndcg@1": null,
+        "recall@3": null,
+        "ndcg@3": null,
+        "recall@5": null,
+        "ndcg@5": null,
+        "recall@10": null,
+        "ndcg@10": null
+      }
+    }
+  },
+  "latency_ms": {
+    "total": {
+      "mean": 3246.253,
+      "p50": 3019.011,
+      "p95": 4897.605,
+      "min": 2392.322,
+      "max": 11783.212
+    },
+    "embed": null,
+    "search": {
+      "mean": 404.821,
+      "p50": 352.252,
+      "p95": 682.643,
+      "min": 267.203,
+      "max": 1307.697
+    },
+    "rerank": {
+      "mean": 2840.811,
+      "p50": 2625.313,
+      "p95": 4271.545,
+      "min": 2123.714,
+      "max": 11237.085
+    },
+    "generate": null
+  },
+  "index_stats": {
+    "documents": "not_available",
+    "chunks": "not_available",
+    "vector_dim": "not_available"
+  }
+}

@@ -1,7 +1,11 @@
-"""Custom citation metrics (RAGAS doesn't cover these)."""
+"""Custom citation metrics and offline retrieval-eval scoring helpers."""
 
+import math
 import re
-from typing import List, Dict
+from dataclasses import dataclass
+from typing import Any, Dict, List
+
+from eval.normalize import anchor_matches, normalize_filename
 
 
 def parse_citations(answer_text: str) -> List[int]:
@@ -115,3 +119,183 @@ def compute_custom_metrics(answer_text: str, results: List[Dict]) -> Dict:
         "citation_coverage": citation_coverage(answer_text),
         "source_grounding": source_grounding(answer_text, results),
     }
+
+
+K_VALUES = (1, 3, 5, 10)
+
+
+@dataclass(frozen=True, slots=True)
+class RetrievalScore:
+    """Per-row retrieval metrics for either doc or page evaluation."""
+
+    scored: bool
+    rr: float | None
+    hits: dict[int, int | None]
+    ndcg: dict[int, float | None]
+
+
+def _rank_gain(rank: int, gain: int) -> float:
+    return float(gain) / math.log2(rank + 1)
+
+
+def _doc_first_match_rank(
+    retrievals: list[dict[str, Any]],
+    gold_source: str,
+) -> int | None:
+    target = normalize_filename(gold_source)
+    if not target:
+        return None
+
+    for retrieval in retrievals:
+        if normalize_filename(retrieval.get("filename")) == target:
+            return int(retrieval["rank"])
+    return None
+
+
+def compute_doc_retrieval_scores(
+    retrievals: list[dict[str, Any]],
+    gold_source: str,
+    k_values: tuple[int, ...] = K_VALUES,
+) -> RetrievalScore:
+    """Compute document-level metrics for a single row."""
+
+    if not gold_source.strip():
+        return RetrievalScore(
+            scored=False,
+            rr=None,
+            hits={k: None for k in k_values},
+            ndcg={k: None for k in k_values},
+        )
+
+    rank = _doc_first_match_rank(retrievals, gold_source)
+    rr = (1.0 / rank) if rank is not None and rank <= 10 else 0.0
+
+    hits = {
+        k: 1 if rank is not None and rank <= k else 0
+        for k in k_values
+    }
+    ndcg = {
+        k: (_rank_gain(rank, 1) if rank is not None and rank <= k else 0.0)
+        for k in k_values
+    }
+
+    return RetrievalScore(scored=True, rr=rr, hits=hits, ndcg=ndcg)
+
+
+def _page_best_rank_and_gain(
+    retrievals: list[dict[str, Any]],
+    gold_source: str,
+    gold_pages: list[int] | None,
+    anchor_text: str,
+    anchor_threshold: int,
+) -> tuple[int | None, int]:
+    target = normalize_filename(gold_source)
+    if not target:
+        return None, 0
+
+    has_anchor = bool(anchor_text.strip())
+    has_pages = bool(gold_pages)
+    page_set = set(gold_pages or [])
+
+    best_rank: int | None = None
+    best_gain = 0
+
+    for retrieval in retrievals:
+        if normalize_filename(retrieval.get("filename")) != target:
+            continue
+
+        page_hit = has_pages and retrieval.get("page") in page_set
+        anchor_hit = False
+        if not page_hit and has_anchor:
+            anchor_hit = anchor_matches(
+                anchor_text,
+                retrieval.get("snippet"),
+                threshold=anchor_threshold,
+            )
+
+        gain = 2 if page_hit or anchor_hit else 1
+        rank = int(retrieval["rank"])
+
+        if gain > best_gain or (gain == best_gain and best_rank is not None and rank < best_rank):
+            best_rank = rank
+            best_gain = gain
+        elif best_rank is None:
+            best_rank = rank
+            best_gain = gain
+
+        if best_gain == 2 and best_rank == 1:
+            break
+
+    return best_rank, best_gain
+
+
+def compute_page_retrieval_scores(
+    retrievals: list[dict[str, Any]],
+    gold_source: str,
+    gold_pages: list[int] | None,
+    anchor_text: str,
+    anchor_threshold: int,
+    k_values: tuple[int, ...] = K_VALUES,
+) -> RetrievalScore:
+    """Compute page-level metrics for a single row."""
+
+    if not gold_source.strip() or (not gold_pages and not anchor_text.strip()):
+        return RetrievalScore(
+            scored=False,
+            rr=None,
+            hits={k: None for k in k_values},
+            ndcg={k: None for k in k_values},
+        )
+
+    rank, gain = _page_best_rank_and_gain(
+        retrievals=retrievals,
+        gold_source=gold_source,
+        gold_pages=gold_pages,
+        anchor_text=anchor_text,
+        anchor_threshold=anchor_threshold,
+    )
+
+    rr = (1.0 / rank) if rank is not None and gain == 2 and rank <= 10 else 0.0
+    hits = {
+        k: 1 if rank is not None and gain == 2 and rank <= k else 0
+        for k in k_values
+    }
+    ndcg = {
+        k: (_rank_gain(rank, gain) / 2.0 if rank is not None and rank <= k and gain > 0 else 0.0)
+        for k in k_values
+    }
+
+    return RetrievalScore(scored=True, rr=rr, hits=hits, ndcg=ndcg)
+
+
+def aggregate_scored_metrics(
+    rows: list[dict[str, Any]],
+    prefix: str,
+    k_values: tuple[int, ...] = K_VALUES,
+) -> dict[str, Any]:
+    """Aggregate only the rows that were actually scored."""
+
+    scored_rows = [row for row in rows if row.get(f"{prefix}_scored")]
+    summary: dict[str, Any] = {"count": len(scored_rows)}
+
+    if not scored_rows:
+        summary["mrr@10"] = None
+        for k in k_values:
+            summary[f"recall@{k}"] = None
+            summary[f"ndcg@{k}"] = None
+        return summary
+
+    summary["mrr@10"] = round(
+        sum(float(row[f"{prefix}_rr"]) for row in scored_rows) / len(scored_rows),
+        6,
+    )
+    for k in k_values:
+        summary[f"recall@{k}"] = round(
+            sum(int(row[f"{prefix}_hit@{k}"]) for row in scored_rows) / len(scored_rows),
+            6,
+        )
+        summary[f"ndcg@{k}"] = round(
+            sum(float(row[f"{prefix}_ndcg@{k}"]) for row in scored_rows) / len(scored_rows),
+            6,
+        )
+    return summary
