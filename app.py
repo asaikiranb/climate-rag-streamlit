@@ -7,7 +7,10 @@ from llm import GenerationClient
 from html_renderer import build_answer_html
 from query import expand_query
 from config import EXAMPLE_QUERIES
-import voice
+try:
+    import voice
+except Exception:
+    voice = None
 
 st.set_page_config(
     page_title="RAG for Climate Challenges",
@@ -78,6 +81,8 @@ def get_generator():
 
 @st.cache_resource
 def load_whisper_model():
+    if voice is None:
+        return None
     try:
         return voice.load_model()
     except Exception:
