@@ -70,7 +70,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: eval-results-${{ github.ref_name }}
+          name: eval-results-${{ github.ref_name && replace(github.ref_name, '/', '-') }}
           path: |
             eval_results_comprehensive.json
             eval_output.log
