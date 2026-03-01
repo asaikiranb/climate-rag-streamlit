@@ -105,7 +105,7 @@ class EvaluationEngine:
             "timestamp": datetime.now().isoformat(),
             "config": {
                 "total_questions": len(results),
-                "reranker": "BAAI/bge-reranker-v2-m3" if self.reranker else "None"
+                "reranker": "cross-encoder/ms-marco-MiniLM-L-6-v2" if self.reranker else "None"
             },
             "retrieval_metrics": {
                 f"recall@{k}": float(np.mean([r["retrieval_metrics"][f"recall@{k}"] for r in results]))

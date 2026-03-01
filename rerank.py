@@ -1,5 +1,6 @@
-"""Cross-Encoder reranking module using BAAI/bge-reranker-v2-m3."""
+"""Cross-Encoder reranking module using cross-encoder/ms-marco-MiniLM-L-6-v2."""
 
+import os
 from typing import List, Dict
 from sentence_transformers import CrossEncoder
 
@@ -9,7 +10,7 @@ class CrossEncoderReranker:
     """Reranks retrieved candidates using a Cross-Encoder and weighted Rank-Based Fusion."""
 
     def __init__(self):
-        self.model = CrossEncoder("BAAI/bge-reranker-v2-m3")
+        self.model = CrossEncoder("cross-encoder/ms-marco-MiniLM-L-6-v2")
 
     def rerank(self, query: str, candidates: List[Dict]) -> List[Dict]:
         """Optimize candidate ranking using a cross-encoder."""
