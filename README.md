@@ -42,6 +42,14 @@ cp .env.example .env
 python ingest.py
 ```
 
+<<<<<<< Updated upstream
+=======
+**Run upgraded page-aware ingestion (v2, Chroma/Qdrant):**
+```
+python ingest_v2.py --source-dir drive-download-20260306T054235Z-3-001 --backend qdrant
+```
+
+>>>>>>> Stashed changes
 **Launch the Streamlit app:**
 ```
 streamlit run app.py
@@ -52,5 +60,19 @@ streamlit run app.py
 python run_contextual_eval.py
 ```
 
+<<<<<<< Updated upstream
+=======
+**Run offline eval with baseline/upgraded profile:**
+```
+python -m eval.run --input eval/golden.csv --out eval_out/baseline --profile baseline
+python -m eval.run --input eval/golden.csv --out eval_out/upgraded --profile upgraded --backend qdrant
+```
+
+**Run doc-first benchmark (two-phase screening + full run):**
+```
+python benchmark_doc_first.py --dataset-dir drive-download-20260306T054235Z-3-001 --golden-csv eval/golden.csv
+```
+
+>>>>>>> Stashed changes
 ## License
 RAG Climate is under The MIT License. Read the [LICENSE](LICENSE) file for more information.

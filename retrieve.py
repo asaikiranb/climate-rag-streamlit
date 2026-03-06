@@ -1,6 +1,7 @@
 """Hybrid retriever combining semantic vector search and BM25 keyword matching."""
 
 import os
+from pathlib import Path
 from typing import List, Dict
 import numpy as np
 from rank_bm25 import BM25Okapi
@@ -20,9 +21,10 @@ class HybridRetriever:
     """Combines semantic vector search with keyword-based BM25 search."""
 
     def __init__(self):
-        # Use local SentenceTransformer only (no HuggingFace API). Same model as ingestion.
+        # Prefer a locally cached snapshot when available to avoid HF lookups in restricted envs.
+        model_name = self._resolve_embedding_model_name()
         self.ef = embedding_functions.SentenceTransformerEmbeddingFunction(
-            model_name="BAAI/bge-m3"
+            model_name=model_name
         )
         self.db = chromadb.PersistentClient(path=CHROMA_PATH)
         self.collection = self.db.get_collection(name=CHROMA_COLLECTION)
@@ -31,6 +33,34 @@ class HybridRetriever:
         self.documents = []
         self.metadata = []
         self.ids = []
+
+    def _resolve_embedding_model_name(self) -> str:
+        # Keep default behavior unless a valid local snapshot exists.
+        default_name = "BAAI/bge-m3"
+        candidates = []
+        hf_home = os.getenv("HF_HOME", "").strip()
+        if hf_home:
+            candidates.append(Path(hf_home))
+        xdg_cache = os.getenv("XDG_CACHE_HOME", "").strip()
+        if xdg_cache:
+            candidates.append(Path(xdg_cache) / "huggingface")
+        # Repo-local cache fallback used by this project.
+        candidates.append(Path(__file__).resolve().parent / ".runtime-cache" / "xdg" / "huggingface")
+
+        for root in candidates:
+            try:
+                model_root = root / "hub" / "models--BAAI--bge-m3"
+                ref_path = model_root / "refs" / "main"
+                if not ref_path.exists():
+                    continue
+                revision = ref_path.read_text(encoding="utf-8").strip()
+                snapshot_path = model_root / "snapshots" / revision
+                config_path = snapshot_path / "config.json"
+                if snapshot_path.exists() and config_path.exists():
+                    return str(snapshot_path)
+            except Exception:
+                continue
+        return default_name
 
     def _initialize_bm25(self, filter_brand: str = None):
         """Build a BM25 index from document collection."""

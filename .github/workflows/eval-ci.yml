@@ -55,6 +55,7 @@ jobs:
           CHROMA_COLLECTION_NAME: hvac_documents
           TOKENIZERS_PARALLELISM: "false"
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
           OLLAMA_JUDGE_MODEL: qwen2.5:1.5b
           OLLAMA_MODEL: qwen2.5:1.5b
         run: |
