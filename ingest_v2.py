@@ -262,7 +262,7 @@ class IngestionPipelineV2:
             for section_idx, (section_title, section_text) in enumerate(sections, start=1):
                 chunk_texts = self._chunk_section_text(section_text)
                 for chunk_idx, chunk_text in enumerate(chunk_texts, start=1):
-                    cid = stable_chunk_id(doc_hash, page_number, section_idx, chunk_idx)
+                    cid = stable_chunk_id(filename, doc_hash, page_number, section_idx, chunk_idx)
                     metadata = {
                         "filename": filename,
                         "source_path": source_path,
