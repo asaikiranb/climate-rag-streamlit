@@ -89,7 +89,7 @@ jobs:
       # ---- Format + Send Email ----
       - name: Format email report
         id: format_email
-        if: always()
+        if: ${{ false }}
         run: |
           python format_email.py \
             --input eval_results_comprehensive.json \
@@ -99,7 +99,7 @@ jobs:
             > email_body.html
 
       - name: Send email to collaborators
-        if: always() && steps.format_email.outcome == 'success'
+        if: ${{ false }}
         uses: dawidd6/action-send-mail@v3
         with:
           server_address: ${{ secrets.SMTP_SERVER }}

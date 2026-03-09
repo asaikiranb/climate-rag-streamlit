@@ -38,6 +38,7 @@ from config import (
     INGEST_EMBEDDING_MODEL,
     INGEST_MIN_TEXT_CHARS,
     INGEST_SOURCE_DIR,
+    MODEL_DEVICE,
     QDRANT_COLLECTION,
     QDRANT_PATH,
     VECTOR_DB_BACKEND,
@@ -114,10 +115,15 @@ class IngestionPipelineV2:
         local_snapshot = resolve_local_snapshot(model_name)
         if local_snapshot:
             try:
-                return SentenceTransformer(local_snapshot, token=token, local_files_only=True)
+                return SentenceTransformer(
+                    local_snapshot,
+                    token=token,
+                    local_files_only=True,
+                    device=MODEL_DEVICE,
+                )
             except Exception:
                 pass
-        return SentenceTransformer(model_name, token=token)
+        return SentenceTransformer(model_name, token=token, device=MODEL_DEVICE)
 
     def _load_tokenizer(self):
         try:

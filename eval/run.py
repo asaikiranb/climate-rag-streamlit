@@ -3,10 +3,20 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
+import json
+import os
+import platform
+import re
+import subprocess
+import sys
 import time
 from pathlib import Path
 from typing import Any
 
+from config import RETRIEVAL_CANDIDATE_K
+from config import EVAL_EMAIL_COMPAT_MODE, EVAL_PRIMARY_CONTRACT
+from eval.compat_email_payload import to_email_payload
 from eval.latency import QueryLatency
 from eval.loader import EvalRow, load_golden_csv
 from eval.metrics import (
@@ -17,18 +27,133 @@ from eval.metrics import (
 from eval.normalize import normalize_retrievals
 from eval.writers import build_summary, print_console_summary, write_json, write_jsonl
 
+SENSITIVE_TOKEN_PATTERN = re.compile(r"hf_[A-Za-z0-9]{20,}")
+
+
+def _redact_sensitive(value: Any) -> str:
+    text = str(value)
+    token = os.getenv("HF_TOKEN", "").strip()
+    if token:
+        text = text.replace(token, "[REDACTED_HF_TOKEN]")
+    return SENSITIVE_TOKEN_PATTERN.sub("[REDACTED_HF_TOKEN]", text)
+
+
+def _sha1_file(path: str | Path) -> str:
+    digest = hashlib.sha1()
+    with Path(path).open("rb") as handle:
+        while True:
+            block = handle.read(1024 * 1024)
+            if not block:
+                break
+            digest.update(block)
+    return digest.hexdigest()
+
+
+def _git_commit() -> str | None:
+    env_sha = os.getenv("GITHUB_SHA", "").strip()
+    if env_sha:
+        return env_sha
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        return result.stdout.strip() or None
+    except Exception:
+        return None
+
 
 class OfflineGroqEvalRunner:
     """Run the local RAG pipeline over a golden CSV and score retrieval quality."""
 
-    def __init__(self, top_k: int, anchor_threshold: int) -> None:
+    def __init__(
+        self,
+        top_k: int,
+        anchor_threshold: int,
+        profile: str = "baseline",
+        backend: str = "chroma",
+        embedding_model: str | None = None,
+        use_alt_stage2: bool = False,
+        stage2_model: str | None = None,
+        stage2_fallback_model: str | None = None,
+        stage2_alt_model: str | None = None,
+        stage2_backend: str | None = None,
+        sparse_mode: str = "none",
+        require_stage2: bool = False,
+        disable_stage2: bool = False,
+        retrieval_candidate_k: int | None = None,
+        stage1_pool_size: int | None = None,
+        stage2_pool_size: int | None = None,
+        chroma_path: str | None = None,
+        chroma_collection: str | None = None,
+        qdrant_path: str | None = None,
+        qdrant_collection: str | None = None,
+    ) -> None:
         self.output_top_n = max(top_k, max(K_VALUES))
         self.anchor_threshold = anchor_threshold
-        from rerank import CrossEncoderReranker
-        from retrieve import HybridRetriever
+        self.profile = profile.strip().lower()
+        self.backend = backend
+        self.embedding_model = embedding_model
+        self.sparse_mode = sparse_mode
+        self.require_stage2 = bool(require_stage2)
+        self.disable_stage2 = bool(disable_stage2)
+        self.stage2_mode_label = "disabled" if self.disable_stage2 else ("alt" if use_alt_stage2 else "default")
+        self.contract = EVAL_PRIMARY_CONTRACT
+        self.retrieval_candidate_k = max(1, int(retrieval_candidate_k or RETRIEVAL_CANDIDATE_K))
+        self.stage1_pool_size = stage1_pool_size
+        self.stage2_pool_size = stage2_pool_size
+        self.chroma_path = chroma_path
+        self.chroma_collection = chroma_collection
+        self.qdrant_path = qdrant_path
+        self.qdrant_collection = qdrant_collection
 
-        self.retriever = HybridRetriever()
-        self.reranker = CrossEncoderReranker()
+        if self.profile == "upgraded":
+            from rerank_v2 import TwoStageCalibratedReranker
+            from retrieve_v2 import HybridRetrieverV2
+
+            retriever_kwargs: dict[str, Any] = {
+                "backend": backend,
+                "sparse_mode": sparse_mode,
+            }
+            if embedding_model:
+                retriever_kwargs["embedding_model"] = embedding_model
+            if chroma_path:
+                retriever_kwargs["chroma_path"] = chroma_path
+            if chroma_collection:
+                retriever_kwargs["chroma_collection"] = chroma_collection
+            if qdrant_path:
+                retriever_kwargs["qdrant_path"] = qdrant_path
+            if qdrant_collection:
+                retriever_kwargs["qdrant_collection"] = qdrant_collection
+
+            self.retriever = HybridRetrieverV2(**retriever_kwargs)
+            reranker_kwargs: dict[str, Any] = {
+                "use_alt_stage2": use_alt_stage2,
+                "require_stage2": require_stage2,
+                "disable_stage2": disable_stage2,
+            }
+            if stage2_model:
+                reranker_kwargs["stage2_model"] = stage2_model
+            if stage2_fallback_model:
+                reranker_kwargs["stage2_fallback_model"] = stage2_fallback_model
+            if stage2_alt_model:
+                reranker_kwargs["stage2_alt_model"] = stage2_alt_model
+            if stage2_backend:
+                reranker_kwargs["stage2_backend"] = stage2_backend
+            if stage1_pool_size is not None:
+                reranker_kwargs["stage1_pool_size"] = int(stage1_pool_size)
+            if stage2_pool_size is not None:
+                reranker_kwargs["stage2_pool_size"] = int(stage2_pool_size)
+            self.reranker = TwoStageCalibratedReranker(**reranker_kwargs)
+        else:
+            from rerank import CrossEncoderReranker
+            from retrieve import HybridRetriever
+
+            self.retriever = HybridRetriever()
+            self.reranker = CrossEncoderReranker()
+
         self.generator: Any | None = None
         self.expand_query_fn: Any | None = None
         self.groq_available = False
@@ -38,7 +163,7 @@ class OfflineGroqEvalRunner:
 
             self.generator = GenerationClient()
             self.groq_available = bool(self.generator.groq)
-            if self.groq_available:
+            if self.groq_available and self.profile == "baseline":
                 try:
                     from query import expand_query as expand_query_fn
 
@@ -53,13 +178,18 @@ class OfflineGroqEvalRunner:
     def _retrieve(self, question: str) -> tuple[list[dict[str, Any]], float | None, float | None]:
         search_started = time.perf_counter()
         expanded_queries = [question]
-        if self.groq_available and self.expand_query_fn is not None and self.generator is not None:
+        if (
+            self.profile == "baseline"
+            and self.groq_available
+            and self.expand_query_fn is not None
+            and self.generator is not None
+        ):
             expanded_queries = self.expand_query_fn(question, self.generator.groq)
 
         seen_ids: set[str] = set()
         candidates: list[dict[str, Any]] = []
         for expanded_query in expanded_queries:
-            for result in self.retriever.search(expanded_query):
+            for result in self.retriever.search(expanded_query, top_k=self.retrieval_candidate_k):
                 result_id = str(result["id"])
                 if result_id in seen_ids:
                     continue
@@ -132,6 +262,73 @@ class OfflineGroqEvalRunner:
 
         return payload
 
+    def _build_manifest(self, input_csv: str, rows_count: int, limit: int | None) -> dict[str, Any]:
+        stage2_info = getattr(self.reranker, "stage2_info", None)
+        retriever_backend = getattr(self.retriever, "backend", self.backend)
+        retriever_sparse = getattr(self.retriever, "sparse_mode", self.sparse_mode)
+        reranker_name = getattr(self.reranker, "model_name", None)
+        doc_first_enabled = getattr(self.reranker, "doc_first_enabled", None)
+        doc_first_aggregate_top_k = getattr(self.reranker, "doc_first_aggregate_top_k", None)
+        doc_first_aggregate_decay = getattr(self.reranker, "doc_first_aggregate_decay", None)
+        if not reranker_name:
+            reranker_name = getattr(self.reranker, "stage1_model_name", None)
+
+        manifest: dict[str, Any] = {
+            "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+            "contract": self.contract,
+            "profile": self.profile,
+            "git_commit": _git_commit(),
+            "python_version": sys.version.split()[0],
+            "platform": platform.platform(),
+            "input": {
+                "path": str(input_csv),
+                "sha1": _sha1_file(input_csv),
+                "rows": int(rows_count),
+                "limit": limit,
+            },
+            "retriever": {
+                "backend": str(retriever_backend),
+                "embedding_model": str(getattr(self.retriever, "embedding_model", self.embedding_model) or ""),
+                "sparse_mode": str(retriever_sparse),
+                "top_n": self.output_top_n,
+                "candidate_k": self.retrieval_candidate_k,
+                "chroma_path": self.chroma_path,
+                "chroma_collection": self.chroma_collection,
+                "qdrant_path": self.qdrant_path,
+                "qdrant_collection": self.qdrant_collection,
+            },
+            "reranker": {
+                "name": reranker_name,
+                "mode": self.stage2_mode_label,
+                "require_stage2": self.require_stage2,
+                "disable_stage2": self.disable_stage2,
+                "stage1_pool_size": self.stage1_pool_size,
+                "stage2_pool_size": self.stage2_pool_size,
+                "doc_first_enabled": doc_first_enabled,
+                "doc_first_aggregate_top_k": doc_first_aggregate_top_k,
+                "doc_first_aggregate_decay": doc_first_aggregate_decay,
+            },
+            "k_values": list(K_VALUES),
+            "anchor_threshold": self.anchor_threshold,
+        }
+        if stage2_info is not None:
+            manifest["stage2"] = {
+                "mode": "disabled" if self.disable_stage2 else "enabled",
+                "name": getattr(stage2_info, "name", "unknown"),
+                "source": getattr(stage2_info, "source", "unknown"),
+                "backend": getattr(stage2_info, "backend", "unknown"),
+                "available": bool(getattr(stage2_info, "available", False)),
+            }
+        else:
+            manifest["stage2"] = {
+                "mode": "disabled" if self.disable_stage2 else "enabled",
+                "name": "n/a",
+                "source": "n/a",
+                "backend": "n/a",
+                "available": False,
+            }
+        return manifest
+
     def run(
         self,
         input_csv: str,
@@ -169,7 +366,7 @@ class OfflineGroqEvalRunner:
                 answer_text, generate_ms = self._generate_answer(row.question, raw_hits)
             except Exception as exc:
                 error_type = type(exc).__name__
-                error_message = str(exc)
+                error_message = _redact_sensitive(exc)
 
             total_ms = (time.perf_counter() - started) * 1000.0
             latency = QueryLatency(
@@ -194,10 +391,24 @@ class OfflineGroqEvalRunner:
         per_query_path = write_jsonl(output_path / "per_query.jsonl", per_query_rows)
         summary_payload = build_summary(per_query_rows, latencies)
         summary_path = write_json(output_path / "summary.json", summary_payload)
+        manifest_payload = self._build_manifest(input_csv=input_csv, rows_count=len(rows), limit=limit)
+        manifest_path = write_json(output_path / "eval_manifest.json", manifest_payload)
+
+        if EVAL_EMAIL_COMPAT_MODE:
+            compat_payload = to_email_payload(summary_payload=summary_payload, manifest_payload=manifest_payload)
+            write_json(output_path / "eval_results_comprehensive.json", compat_payload)
+
         print_console_summary(summary_payload)
         print("")
         print(f"Per-query JSONL: {per_query_path}")
         print(f"Summary JSON: {summary_path}")
+        print(f"Manifest JSON: {manifest_path}")
+
+        if hasattr(self.retriever, "close"):
+            try:
+                self.retriever.close()
+            except Exception:
+                pass
 
         return per_query_path, summary_path
 
@@ -216,13 +427,123 @@ def add_eval_subcommand(subparsers: argparse._SubParsersAction[argparse.Argument
         help="Fuzzy anchor match threshold from 0 to 100.",
     )
     parser.add_argument("--limit", type=int, default=None, help="Limit rows for smoke tests.")
+    parser.add_argument(
+        "--profile",
+        choices=["baseline", "upgraded"],
+        default="baseline",
+        help="Choose baseline (current) or upgraded retrieval+reranking profile.",
+    )
+    parser.add_argument(
+        "--backend",
+        choices=["chroma", "qdrant"],
+        default="chroma",
+        help="Vector backend for upgraded profile.",
+    )
+    parser.add_argument(
+        "--embedding-model",
+        default=None,
+        help="Override embedding model for upgraded profile.",
+    )
+    parser.add_argument(
+        "--stage2-alt",
+        action="store_true",
+        help="Use alternate strong stage-2 reranker instead of contextual preference.",
+    )
+    parser.add_argument(
+        "--sparse-mode",
+        choices=["none", "bm42", "splade"],
+        default="none",
+        help="Sparse branch mode for upgraded profile.",
+    )
+    parser.add_argument(
+        "--require-stage2",
+        action="store_true",
+        help="Fail immediately if no stage-2 reranker can be loaded.",
+    )
+    parser.add_argument(
+        "--disable-stage2",
+        action="store_true",
+        help="Disable stage-2 reranking explicitly and use stage-1 + retrieval fusion only.",
+    )
+    parser.add_argument(
+        "--candidate-k",
+        type=int,
+        default=None,
+        help="Override retrieval candidate pool size for upgraded profile.",
+    )
+    parser.add_argument(
+        "--stage1-pool-size",
+        type=int,
+        default=None,
+        help="Override stage-1 reranker pool size for upgraded profile.",
+    )
+    parser.add_argument(
+        "--stage2-pool-size",
+        type=int,
+        default=None,
+        help="Override stage-2 reranker pool size for upgraded profile.",
+    )
+    parser.add_argument(
+        "--stage2-model",
+        default=None,
+        help="Explicit stage-2 primary reranker model override for upgraded profile.",
+    )
+    parser.add_argument(
+        "--stage2-fallback-model",
+        default=None,
+        help="Explicit stage-2 fallback reranker model override for upgraded profile.",
+    )
+    parser.add_argument(
+        "--stage2-alt-model",
+        default=None,
+        help="Explicit stage-2 alternate reranker model override for upgraded profile.",
+    )
+    parser.add_argument(
+        "--stage2-backend",
+        choices=["cross_encoder", "contextual_hf", "contextual_vllm"],
+        default=None,
+        help="Stage-2 backend for upgraded profile.",
+    )
+    parser.add_argument("--chroma-path", default=None, help="Override Chroma path for upgraded profile.")
+    parser.add_argument(
+        "--chroma-collection",
+        default=None,
+        help="Override Chroma collection for upgraded profile.",
+    )
+    parser.add_argument("--qdrant-path", default=None, help="Override Qdrant path for upgraded profile.")
+    parser.add_argument(
+        "--qdrant-collection",
+        default=None,
+        help="Override Qdrant collection for upgraded profile.",
+    )
     parser.set_defaults(handler=run_from_args)
 
 
 def run_from_args(args: argparse.Namespace) -> int:
     """CLI adapter."""
 
-    runner = OfflineGroqEvalRunner(top_k=args.top_k, anchor_threshold=args.anchor_threshold)
+    runner = OfflineGroqEvalRunner(
+        top_k=args.top_k,
+        anchor_threshold=args.anchor_threshold,
+        profile=args.profile,
+        backend=args.backend,
+        embedding_model=args.embedding_model,
+        use_alt_stage2=args.stage2_alt,
+        stage2_model=args.stage2_model,
+        stage2_fallback_model=args.stage2_fallback_model,
+        stage2_alt_model=args.stage2_alt_model,
+        stage2_backend=args.stage2_backend,
+        sparse_mode=args.sparse_mode,
+        require_stage2=args.require_stage2,
+        disable_stage2=args.disable_stage2,
+        retrieval_candidate_k=args.candidate_k,
+        stage1_pool_size=args.stage1_pool_size,
+        stage2_pool_size=args.stage2_pool_size,
+        chroma_path=args.chroma_path,
+        chroma_collection=args.chroma_collection,
+        qdrant_path=args.qdrant_path,
+        qdrant_collection=args.qdrant_collection,
+    )
     runner.run(input_csv=args.input, output_dir=args.out, limit=args.limit)
     return 0
 
@@ -241,6 +562,95 @@ def main(argv: list[str] | None = None) -> int:
         help="Fuzzy anchor match threshold from 0 to 100.",
     )
     parser.add_argument("--limit", type=int, default=None, help="Limit rows for smoke tests.")
+    parser.add_argument(
+        "--profile",
+        choices=["baseline", "upgraded"],
+        default="baseline",
+        help="Choose baseline (current) or upgraded retrieval+reranking profile.",
+    )
+    parser.add_argument(
+        "--backend",
+        choices=["chroma", "qdrant"],
+        default="chroma",
+        help="Vector backend for upgraded profile.",
+    )
+    parser.add_argument(
+        "--embedding-model",
+        default=None,
+        help="Override embedding model for upgraded profile.",
+    )
+    parser.add_argument(
+        "--stage2-alt",
+        action="store_true",
+        help="Use alternate strong stage-2 reranker instead of contextual preference.",
+    )
+    parser.add_argument(
+        "--sparse-mode",
+        choices=["none", "bm42", "splade"],
+        default="none",
+        help="Sparse branch mode for upgraded profile.",
+    )
+    parser.add_argument(
+        "--require-stage2",
+        action="store_true",
+        help="Fail immediately if no stage-2 reranker can be loaded.",
+    )
+    parser.add_argument(
+        "--disable-stage2",
+        action="store_true",
+        help="Disable stage-2 reranking explicitly and use stage-1 + retrieval fusion only.",
+    )
+    parser.add_argument(
+        "--candidate-k",
+        type=int,
+        default=None,
+        help="Override retrieval candidate pool size for upgraded profile.",
+    )
+    parser.add_argument(
+        "--stage1-pool-size",
+        type=int,
+        default=None,
+        help="Override stage-1 reranker pool size for upgraded profile.",
+    )
+    parser.add_argument(
+        "--stage2-pool-size",
+        type=int,
+        default=None,
+        help="Override stage-2 reranker pool size for upgraded profile.",
+    )
+    parser.add_argument(
+        "--stage2-model",
+        default=None,
+        help="Explicit stage-2 primary reranker model override for upgraded profile.",
+    )
+    parser.add_argument(
+        "--stage2-fallback-model",
+        default=None,
+        help="Explicit stage-2 fallback reranker model override for upgraded profile.",
+    )
+    parser.add_argument(
+        "--stage2-alt-model",
+        default=None,
+        help="Explicit stage-2 alternate reranker model override for upgraded profile.",
+    )
+    parser.add_argument(
+        "--stage2-backend",
+        choices=["cross_encoder", "contextual_hf", "contextual_vllm"],
+        default=None,
+        help="Stage-2 backend for upgraded profile.",
+    )
+    parser.add_argument("--chroma-path", default=None, help="Override Chroma path for upgraded profile.")
+    parser.add_argument(
+        "--chroma-collection",
+        default=None,
+        help="Override Chroma collection for upgraded profile.",
+    )
+    parser.add_argument("--qdrant-path", default=None, help="Override Qdrant path for upgraded profile.")
+    parser.add_argument(
+        "--qdrant-collection",
+        default=None,
+        help="Override Qdrant collection for upgraded profile.",
+    )
     args = parser.parse_args(argv)
     return run_from_args(args)
 

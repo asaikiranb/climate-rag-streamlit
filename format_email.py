@@ -21,8 +21,32 @@ def _to_float(value: object, default: float = 0.0) -> float:
         return default
 
 
+def _normalize_payload(data: dict) -> dict:
+    """Accept legacy and upgraded payload shapes for email rendering."""
+
+    required = {"config", "retrieval_metrics", "latency_summary", "difficulty_breakdown"}
+    if required.issubset(set(data.keys())):
+        return data
+
+    candidate = data.get("summary") if isinstance(data.get("summary"), dict) else data
+    if required.issubset(set(candidate.keys())):
+        return candidate
+
+    if "retrieval" in candidate:
+        try:
+            from eval.compat_email_payload import to_email_payload
+
+            manifest = data.get("manifest") if isinstance(data.get("manifest"), dict) else None
+            return to_email_payload(summary_payload=candidate, manifest_payload=manifest)
+        except Exception:
+            return candidate
+    return candidate
+
+
 def build_html(data: dict, branch: str, commit: str, repo: str) -> str:
     """Build an HTML report from the evaluation JSON."""
+
+    data = _normalize_payload(data)
 
     config = data.get("config", {})
     retrieval = data.get("retrieval_metrics", {})
@@ -240,4 +264,3 @@ if __name__ == "__main__":
         payload = json.load(infile)
 
     print(build_html(payload, args.branch, args.commit, args.repo))
-

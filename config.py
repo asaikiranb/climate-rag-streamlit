@@ -5,6 +5,21 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+
+def _env_bool(name: str, default: bool) -> bool:
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    return raw.strip().lower() in {"1", "true", "yes", "y", "on"}
+
+
+def _env_list(name: str, default: list[str]) -> list[str]:
+    raw = os.getenv(name)
+    if raw is None:
+        return list(default)
+    values = [value.strip() for value in raw.split(",") if value.strip()]
+    return values or list(default)
+
 # LLM 
 LLM_MODEL = "llama-3.3-70b-versatile"
 LLM_TEMPERATURE = 0.2
@@ -19,6 +34,9 @@ RETRIEVAL_CANDIDATE_K = int(
 RERANK_POOL_SIZE = int(
     os.getenv("RERANK_POOL_SIZE", "40")
 )  # rerank more candidates → better recall@1
+
+# Runtime device control (CPU-safe default)
+MODEL_DEVICE = os.getenv("MODEL_DEVICE", "cpu").strip().lower()
 
 # Database Config
 CHROMA_PATH = "./chroma_db"
@@ -41,6 +59,10 @@ INGEST_DOC_REGISTRY_PATH = os.getenv("INGEST_DOC_REGISTRY_PATH", "./eval_out/doc
 DENSE_FUSION_WEIGHT = float(os.getenv("DENSE_FUSION_WEIGHT", "0.58"))
 SPARSE_FUSION_WEIGHT = float(os.getenv("SPARSE_FUSION_WEIGHT", "0.35"))
 METADATA_PRIOR_WEIGHT = float(os.getenv("METADATA_PRIOR_WEIGHT", "0.07"))
+SPARSE_MODE = os.getenv("SPARSE_MODE", "none").strip().lower()
+SPLADE_MODEL = os.getenv("SPLADE_MODEL", "naver/splade-cocondenser-ensembledistil")
+SPLADE_MAX_TERMS = int(os.getenv("SPLADE_MAX_TERMS", "96"))
+SPLADE_MAX_LENGTH = int(os.getenv("SPLADE_MAX_LENGTH", "256"))
 METADATA_TITLE_WEIGHT = float(os.getenv("METADATA_TITLE_WEIGHT", "0.5"))
 METADATA_SECTION_WEIGHT = float(os.getenv("METADATA_SECTION_WEIGHT", "0.35"))
 METADATA_FILENAME_WEIGHT = float(os.getenv("METADATA_FILENAME_WEIGHT", "0.15"))
@@ -48,18 +70,42 @@ EARLY_PAGE_PRIOR = float(os.getenv("EARLY_PAGE_PRIOR", "0.05"))
 
 # V2 reranker controls
 RERANK_STAGE1_MODEL = os.getenv("RERANK_STAGE1_MODEL", "cross-encoder/ms-marco-MiniLM-L-6-v2")
-RERANK_STAGE2_MODEL = os.getenv("RERANK_STAGE2_MODEL", "contextualai/contextual-rerank-v2-2b")
+RERANK_STAGE2_MODEL = os.getenv(
+    "RERANK_STAGE2_MODEL",
+    "ContextualAI/ctxl-rerank-v2-instruct-multilingual-2b",
+)
 RERANK_STAGE2_FALLBACK_MODEL = os.getenv(
     "RERANK_STAGE2_FALLBACK_MODEL",
-    "contextualai/contextual-rerank-v2-1b-nvfp4",
+    "ContextualAI/ctxl-rerank-v2-instruct-multilingual-1b-nvfp4",
 )
 RERANK_STAGE2_ALT_MODEL = os.getenv("RERANK_STAGE2_ALT_MODEL", "mixedbread-ai/mxbai-rerank-large-v1")
+CONTEXTUAL_STAGE2_MODEL_IDS = _env_list(
+    "CONTEXTUAL_STAGE2_MODEL_IDS",
+    [
+        "ContextualAI/ctxl-rerank-v2-instruct-multilingual-2b",
+        "ContextualAI/ctxl-rerank-v2-instruct-multilingual-1b-nvfp4",
+    ],
+)
+RERANK_STAGE2_BACKEND = os.getenv("RERANK_STAGE2_BACKEND", "cross_encoder").strip().lower()
 RERANK_STAGE1_POOL_SIZE = int(os.getenv("RERANK_STAGE1_POOL_SIZE", "120"))
 RERANK_STAGE2_POOL_SIZE = int(os.getenv("RERANK_STAGE2_POOL_SIZE", "30"))
+REQUIRE_STAGE2 = _env_bool("REQUIRE_STAGE2", False)
+DOC_FIRST_RERANK_ENABLED = _env_bool("DOC_FIRST_RERANK_ENABLED", True)
+DOC_FIRST_AGGREGATE_TOP_K = int(os.getenv("DOC_FIRST_AGGREGATE_TOP_K", "3"))
+DOC_FIRST_AGGREGATE_DECAY = float(os.getenv("DOC_FIRST_AGGREGATE_DECAY", "0.35"))
 RERANK_FINAL_STAGE2_WEIGHT = float(os.getenv("RERANK_FINAL_STAGE2_WEIGHT", "0.65"))
 RERANK_FINAL_STAGE1_WEIGHT = float(os.getenv("RERANK_FINAL_STAGE1_WEIGHT", "0.20"))
 RERANK_FINAL_RETRIEVAL_WEIGHT = float(os.getenv("RERANK_FINAL_RETRIEVAL_WEIGHT", "0.10"))
 RERANK_FINAL_META_WEIGHT = float(os.getenv("RERANK_FINAL_META_WEIGHT", "0.05"))
+
+# Benchmark pruning/selection thresholds
+NEGLIGIBLE_DELTA_R1 = float(os.getenv("NEGLIGIBLE_DELTA_R1", "0.005"))
+NEGLIGIBLE_DELTA_MRR = float(os.getenv("NEGLIGIBLE_DELTA_MRR", "0.005"))
+MAX_ACCEPTABLE_P50_LATENCY_INCREASE = float(os.getenv("MAX_ACCEPTABLE_P50_LATENCY_INCREASE", "0.35"))
+
+# Evaluation/report contracts
+EVAL_PRIMARY_CONTRACT = os.getenv("EVAL_PRIMARY_CONTRACT", "doc_page_v2").strip().lower()
+EVAL_EMAIL_COMPAT_MODE = _env_bool("EVAL_EMAIL_COMPAT_MODE", True)
 
 # Reranker model (same size class: ~22M–70M params). Options:
 #   cross-encoder/ms-marco-MiniLM-L-6-v2   (default, 22M, fast ~280ms, recall@1 ~67.5%)
