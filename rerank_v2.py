@@ -28,7 +28,11 @@ from config import (
     RERANK_STAGE2_POOL_SIZE,
 )
 from hf_local import resolve_local_snapshot
-from rerank_contextual import ContextualRerankerBackend
+
+try:
+    from rerank_contextual import ContextualRerankerBackend
+except Exception:  # pragma: no cover
+    ContextualRerankerBackend = None
 
 
 def _calibrate(scores: list[float]) -> list[float]:
@@ -195,6 +199,8 @@ class TwoStageCalibratedReranker:
             return None
 
     def _load_contextual_backend(self, model_name: str) -> ContextualRerankerBackend | None:
+        if ContextualRerankerBackend is None:
+            return None
         try:
             return ContextualRerankerBackend(model_name=model_name, backend=self.stage2_backend)
         except Exception:

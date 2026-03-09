@@ -522,6 +522,10 @@ def add_eval_subcommand(subparsers: argparse._SubParsersAction[argparse.Argument
 def run_from_args(args: argparse.Namespace) -> int:
     """CLI adapter."""
 
+    disable_stage2 = bool(args.disable_stage2)
+    if args.profile == "upgraded" and not args.require_stage2:
+        disable_stage2 = True
+
     runner = OfflineGroqEvalRunner(
         top_k=args.top_k,
         anchor_threshold=args.anchor_threshold,
@@ -535,7 +539,7 @@ def run_from_args(args: argparse.Namespace) -> int:
         stage2_backend=args.stage2_backend,
         sparse_mode=args.sparse_mode,
         require_stage2=args.require_stage2,
-        disable_stage2=args.disable_stage2,
+        disable_stage2=disable_stage2,
         retrieval_candidate_k=args.candidate_k,
         stage1_pool_size=args.stage1_pool_size,
         stage2_pool_size=args.stage2_pool_size,
