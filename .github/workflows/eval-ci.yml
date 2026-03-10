@@ -62,7 +62,6 @@ jobs:
             --sparse-mode bm42 \
             --candidate-k 12 \
             --stage1-pool-size 80 \
-            --disable-stage2 \
             --qdrant-path ./qdrant_db_ci \
             --qdrant-collection hvac_documents_qdrant_ci \
             2>&1 | tee eval_output.log

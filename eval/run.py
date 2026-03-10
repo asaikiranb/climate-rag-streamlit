@@ -73,19 +73,11 @@ class OfflineGroqEvalRunner:
         top_k: int,
         anchor_threshold: int,
         profile: str = "baseline",
-        backend: str = "chroma",
+        backend: str = "qdrant",
         embedding_model: str | None = None,
-        use_alt_stage2: bool = False,
-        stage2_model: str | None = None,
-        stage2_fallback_model: str | None = None,
-        stage2_alt_model: str | None = None,
-        stage2_backend: str | None = None,
         sparse_mode: str = "none",
-        require_stage2: bool = False,
-        disable_stage2: bool = False,
         retrieval_candidate_k: int | None = None,
         stage1_pool_size: int | None = None,
-        stage2_pool_size: int | None = None,
         chroma_path: str | None = None,
         chroma_collection: str | None = None,
         qdrant_path: str | None = None,
@@ -97,13 +89,9 @@ class OfflineGroqEvalRunner:
         self.backend = backend
         self.embedding_model = embedding_model
         self.sparse_mode = sparse_mode
-        self.require_stage2 = bool(require_stage2)
-        self.disable_stage2 = bool(disable_stage2)
-        self.stage2_mode_label = "disabled" if self.disable_stage2 else ("alt" if use_alt_stage2 else "default")
         self.contract = EVAL_PRIMARY_CONTRACT
         self.retrieval_candidate_k = max(1, int(retrieval_candidate_k or RETRIEVAL_CANDIDATE_K))
         self.stage1_pool_size = stage1_pool_size
-        self.stage2_pool_size = stage2_pool_size
         self.chroma_path = chroma_path
         self.chroma_collection = chroma_collection
         self.qdrant_path = qdrant_path
@@ -129,23 +117,9 @@ class OfflineGroqEvalRunner:
                 retriever_kwargs["qdrant_collection"] = qdrant_collection
 
             self.retriever = HybridRetrieverV2(**retriever_kwargs)
-            reranker_kwargs: dict[str, Any] = {
-                "use_alt_stage2": use_alt_stage2,
-                "require_stage2": require_stage2,
-                "disable_stage2": disable_stage2,
-            }
-            if stage2_model:
-                reranker_kwargs["stage2_model"] = stage2_model
-            if stage2_fallback_model:
-                reranker_kwargs["stage2_fallback_model"] = stage2_fallback_model
-            if stage2_alt_model:
-                reranker_kwargs["stage2_alt_model"] = stage2_alt_model
-            if stage2_backend:
-                reranker_kwargs["stage2_backend"] = stage2_backend
+            reranker_kwargs: dict[str, Any] = {}
             if stage1_pool_size is not None:
                 reranker_kwargs["stage1_pool_size"] = int(stage1_pool_size)
-            if stage2_pool_size is not None:
-                reranker_kwargs["stage2_pool_size"] = int(stage2_pool_size)
             self.reranker = TwoStageCalibratedReranker(**reranker_kwargs)
         else:
             from rerank import CrossEncoderReranker
@@ -263,7 +237,6 @@ class OfflineGroqEvalRunner:
         return payload
 
     def _build_manifest(self, input_csv: str, rows_count: int, limit: int | None) -> dict[str, Any]:
-        stage2_info = getattr(self.reranker, "stage2_info", None)
         retriever_backend = getattr(self.retriever, "backend", self.backend)
         retriever_sparse = getattr(self.retriever, "sparse_mode", self.sparse_mode)
         reranker_name = getattr(self.reranker, "model_name", None)
@@ -299,11 +272,8 @@ class OfflineGroqEvalRunner:
             },
             "reranker": {
                 "name": reranker_name,
-                "mode": self.stage2_mode_label,
-                "require_stage2": self.require_stage2,
-                "disable_stage2": self.disable_stage2,
+                "mode": "single_stage_calibrated",
                 "stage1_pool_size": self.stage1_pool_size,
-                "stage2_pool_size": self.stage2_pool_size,
                 "doc_first_enabled": doc_first_enabled,
                 "doc_first_aggregate_top_k": doc_first_aggregate_top_k,
                 "doc_first_aggregate_decay": doc_first_aggregate_decay,
@@ -311,22 +281,6 @@ class OfflineGroqEvalRunner:
             "k_values": list(K_VALUES),
             "anchor_threshold": self.anchor_threshold,
         }
-        if stage2_info is not None:
-            manifest["stage2"] = {
-                "mode": "disabled" if self.disable_stage2 else "enabled",
-                "name": getattr(stage2_info, "name", "unknown"),
-                "source": getattr(stage2_info, "source", "unknown"),
-                "backend": getattr(stage2_info, "backend", "unknown"),
-                "available": bool(getattr(stage2_info, "available", False)),
-            }
-        else:
-            manifest["stage2"] = {
-                "mode": "disabled" if self.disable_stage2 else "enabled",
-                "name": "n/a",
-                "source": "n/a",
-                "backend": "n/a",
-                "available": False,
-            }
         return manifest
 
     def run(
@@ -436,7 +390,7 @@ def add_eval_subcommand(subparsers: argparse._SubParsersAction[argparse.Argument
     parser.add_argument(
         "--backend",
         choices=["chroma", "qdrant"],
-        default="chroma",
+        default="qdrant",
         help="Vector backend for upgraded profile.",
     )
     parser.add_argument(
@@ -445,25 +399,10 @@ def add_eval_subcommand(subparsers: argparse._SubParsersAction[argparse.Argument
         help="Override embedding model for upgraded profile.",
     )
     parser.add_argument(
-        "--stage2-alt",
-        action="store_true",
-        help="Use alternate strong stage-2 reranker instead of contextual preference.",
-    )
-    parser.add_argument(
         "--sparse-mode",
         choices=["none", "bm42", "splade"],
         default="none",
         help="Sparse branch mode for upgraded profile.",
-    )
-    parser.add_argument(
-        "--require-stage2",
-        action="store_true",
-        help="Fail immediately if no stage-2 reranker can be loaded.",
-    )
-    parser.add_argument(
-        "--disable-stage2",
-        action="store_true",
-        help="Disable stage-2 reranking explicitly and use stage-1 + retrieval fusion only.",
     )
     parser.add_argument(
         "--candidate-k",
@@ -476,33 +415,6 @@ def add_eval_subcommand(subparsers: argparse._SubParsersAction[argparse.Argument
         type=int,
         default=None,
         help="Override stage-1 reranker pool size for upgraded profile.",
-    )
-    parser.add_argument(
-        "--stage2-pool-size",
-        type=int,
-        default=None,
-        help="Override stage-2 reranker pool size for upgraded profile.",
-    )
-    parser.add_argument(
-        "--stage2-model",
-        default=None,
-        help="Explicit stage-2 primary reranker model override for upgraded profile.",
-    )
-    parser.add_argument(
-        "--stage2-fallback-model",
-        default=None,
-        help="Explicit stage-2 fallback reranker model override for upgraded profile.",
-    )
-    parser.add_argument(
-        "--stage2-alt-model",
-        default=None,
-        help="Explicit stage-2 alternate reranker model override for upgraded profile.",
-    )
-    parser.add_argument(
-        "--stage2-backend",
-        choices=["cross_encoder", "contextual_hf", "contextual_vllm"],
-        default=None,
-        help="Stage-2 backend for upgraded profile.",
     )
     parser.add_argument("--chroma-path", default=None, help="Override Chroma path for upgraded profile.")
     parser.add_argument(
@@ -522,27 +434,15 @@ def add_eval_subcommand(subparsers: argparse._SubParsersAction[argparse.Argument
 def run_from_args(args: argparse.Namespace) -> int:
     """CLI adapter."""
 
-    disable_stage2 = bool(args.disable_stage2)
-    if args.profile == "upgraded" and not args.require_stage2:
-        disable_stage2 = True
-
     runner = OfflineGroqEvalRunner(
         top_k=args.top_k,
         anchor_threshold=args.anchor_threshold,
         profile=args.profile,
         backend=args.backend,
         embedding_model=args.embedding_model,
-        use_alt_stage2=args.stage2_alt,
-        stage2_model=args.stage2_model,
-        stage2_fallback_model=args.stage2_fallback_model,
-        stage2_alt_model=args.stage2_alt_model,
-        stage2_backend=args.stage2_backend,
         sparse_mode=args.sparse_mode,
-        require_stage2=args.require_stage2,
-        disable_stage2=disable_stage2,
         retrieval_candidate_k=args.candidate_k,
         stage1_pool_size=args.stage1_pool_size,
-        stage2_pool_size=args.stage2_pool_size,
         chroma_path=args.chroma_path,
         chroma_collection=args.chroma_collection,
         qdrant_path=args.qdrant_path,
@@ -575,7 +475,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--backend",
         choices=["chroma", "qdrant"],
-        default="chroma",
+        default="qdrant",
         help="Vector backend for upgraded profile.",
     )
     parser.add_argument(
@@ -584,25 +484,10 @@ def main(argv: list[str] | None = None) -> int:
         help="Override embedding model for upgraded profile.",
     )
     parser.add_argument(
-        "--stage2-alt",
-        action="store_true",
-        help="Use alternate strong stage-2 reranker instead of contextual preference.",
-    )
-    parser.add_argument(
         "--sparse-mode",
         choices=["none", "bm42", "splade"],
         default="none",
         help="Sparse branch mode for upgraded profile.",
-    )
-    parser.add_argument(
-        "--require-stage2",
-        action="store_true",
-        help="Fail immediately if no stage-2 reranker can be loaded.",
-    )
-    parser.add_argument(
-        "--disable-stage2",
-        action="store_true",
-        help="Disable stage-2 reranking explicitly and use stage-1 + retrieval fusion only.",
     )
     parser.add_argument(
         "--candidate-k",
@@ -615,33 +500,6 @@ def main(argv: list[str] | None = None) -> int:
         type=int,
         default=None,
         help="Override stage-1 reranker pool size for upgraded profile.",
-    )
-    parser.add_argument(
-        "--stage2-pool-size",
-        type=int,
-        default=None,
-        help="Override stage-2 reranker pool size for upgraded profile.",
-    )
-    parser.add_argument(
-        "--stage2-model",
-        default=None,
-        help="Explicit stage-2 primary reranker model override for upgraded profile.",
-    )
-    parser.add_argument(
-        "--stage2-fallback-model",
-        default=None,
-        help="Explicit stage-2 fallback reranker model override for upgraded profile.",
-    )
-    parser.add_argument(
-        "--stage2-alt-model",
-        default=None,
-        help="Explicit stage-2 alternate reranker model override for upgraded profile.",
-    )
-    parser.add_argument(
-        "--stage2-backend",
-        choices=["cross_encoder", "contextual_hf", "contextual_vllm"],
-        default=None,
-        help="Stage-2 backend for upgraded profile.",
     )
     parser.add_argument("--chroma-path", default=None, help="Override Chroma path for upgraded profile.")
     parser.add_argument(

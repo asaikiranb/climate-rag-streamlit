@@ -43,9 +43,9 @@ CHROMA_PATH = "./chroma_db"
 CHROMA_COLLECTION = os.getenv("CHROMA_COLLECTION_NAME", "hvac_documents")
 
 # V2 pipeline database config
-VECTOR_DB_BACKEND = os.getenv("VECTOR_DB_BACKEND", "chroma")
-QDRANT_PATH = os.getenv("QDRANT_PATH", "./qdrant_db")
-QDRANT_COLLECTION = os.getenv("QDRANT_COLLECTION_NAME", "hvac_documents_qdrant")
+VECTOR_DB_BACKEND = os.getenv("VECTOR_DB_BACKEND", "qdrant")
+QDRANT_PATH = os.getenv("QDRANT_PATH", "./qdrant_db_ci")
+QDRANT_COLLECTION = os.getenv("QDRANT_COLLECTION_NAME", "hvac_documents_qdrant_ci")
 
 # V2 ingestion config
 INGEST_SOURCE_DIR = os.getenv("INGEST_SOURCE_DIR", "./Eval Dataset")
@@ -70,33 +70,10 @@ EARLY_PAGE_PRIOR = float(os.getenv("EARLY_PAGE_PRIOR", "0.05"))
 
 # V2 reranker controls
 RERANK_STAGE1_MODEL = os.getenv("RERANK_STAGE1_MODEL", "cross-encoder/ms-marco-MiniLM-L-6-v2")
-RERANK_STAGE2_MODEL = os.getenv(
-    "RERANK_STAGE2_MODEL",
-    "ContextualAI/ctxl-rerank-v2-instruct-multilingual-2b",
-)
-RERANK_STAGE2_FALLBACK_MODEL = os.getenv(
-    "RERANK_STAGE2_FALLBACK_MODEL",
-    "ContextualAI/ctxl-rerank-v2-instruct-multilingual-1b-nvfp4",
-)
-RERANK_STAGE2_ALT_MODEL = os.getenv("RERANK_STAGE2_ALT_MODEL", "mixedbread-ai/mxbai-rerank-large-v1")
-CONTEXTUAL_STAGE2_MODEL_IDS = _env_list(
-    "CONTEXTUAL_STAGE2_MODEL_IDS",
-    [
-        "ContextualAI/ctxl-rerank-v2-instruct-multilingual-2b",
-        "ContextualAI/ctxl-rerank-v2-instruct-multilingual-1b-nvfp4",
-    ],
-)
-RERANK_STAGE2_BACKEND = os.getenv("RERANK_STAGE2_BACKEND", "cross_encoder").strip().lower()
 RERANK_STAGE1_POOL_SIZE = int(os.getenv("RERANK_STAGE1_POOL_SIZE", "120"))
-RERANK_STAGE2_POOL_SIZE = int(os.getenv("RERANK_STAGE2_POOL_SIZE", "30"))
-REQUIRE_STAGE2 = _env_bool("REQUIRE_STAGE2", False)
 DOC_FIRST_RERANK_ENABLED = _env_bool("DOC_FIRST_RERANK_ENABLED", True)
 DOC_FIRST_AGGREGATE_TOP_K = int(os.getenv("DOC_FIRST_AGGREGATE_TOP_K", "3"))
 DOC_FIRST_AGGREGATE_DECAY = float(os.getenv("DOC_FIRST_AGGREGATE_DECAY", "0.35"))
-RERANK_FINAL_STAGE2_WEIGHT = float(os.getenv("RERANK_FINAL_STAGE2_WEIGHT", "0.65"))
-RERANK_FINAL_STAGE1_WEIGHT = float(os.getenv("RERANK_FINAL_STAGE1_WEIGHT", "0.20"))
-RERANK_FINAL_RETRIEVAL_WEIGHT = float(os.getenv("RERANK_FINAL_RETRIEVAL_WEIGHT", "0.10"))
-RERANK_FINAL_META_WEIGHT = float(os.getenv("RERANK_FINAL_META_WEIGHT", "0.05"))
 
 # Benchmark pruning/selection thresholds
 NEGLIGIBLE_DELTA_R1 = float(os.getenv("NEGLIGIBLE_DELTA_R1", "0.005"))
