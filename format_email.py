@@ -6,7 +6,6 @@ from datetime import datetime
 
 
 def metric_color(value: float) -> str:
-    """Return a CSS color based on metric value."""
     if value >= 0.8:
         return "#2ea043"
     if value >= 0.6:
@@ -22,9 +21,12 @@ def _to_float(value: object, default: float = 0.0) -> float:
 
 
 def _normalize_payload(data: dict) -> dict:
-    """Accept legacy and upgraded payload shapes for email rendering."""
-
-    required = {"config", "retrieval_metrics", "latency_summary", "difficulty_breakdown"}
+    required = {
+        "config",
+        "retrieval_metrics",
+        "latency_summary",
+        "difficulty_breakdown",
+    }
     if required.issubset(set(data.keys())):
         return data
 
@@ -40,28 +42,24 @@ def _normalize_payload(data: dict) -> dict:
             return to_email_payload(summary_payload=candidate, manifest_payload=manifest)
         except Exception:
             return candidate
+
     return candidate
 
 
 def build_html(data: dict, branch: str, commit: str, repo: str) -> str:
-    """Build an HTML report from the evaluation JSON."""
-
     data = _normalize_payload(data)
 
     config = data.get("config", {})
     retrieval = data.get("retrieval_metrics", {})
     latency = data.get("latency_summary", {})
-    expansion = data.get("expansion_summary", {})
     difficulty = data.get("difficulty_breakdown", {})
-    generation = data.get("generation_metrics")
-    citation = data.get("citation_metrics")
-
-    retrieval_only = not generation and not citation
+    generation = data.get("generation_metrics") or {}
+    citation = data.get("citation_metrics") or {}
 
     commit_short = commit[:7]
     commit_url = f"https://github.com/{repo}/commit/{commit}"
     branch_url = f"https://github.com/{repo}/tree/{branch}"
-    timestamp = data.get("timestamp", datetime.now().isoformat())
+    timestamp = str(data.get("timestamp", datetime.now().isoformat()))[:19]
 
     html_parts: list[str] = [
         "<!DOCTYPE html>",
@@ -80,25 +78,16 @@ def build_html(data: dict, branch: str, commit: str, repo: str) -> str:
         "</style>",
         "</head>",
         "<body>",
-        "<h1>📊 RAG Evaluation Results</h1>",
+        "<h1>RAG Evaluation Results</h1>",
         (
             f"<p class=\"meta\">"
-            f"Branch: <a href=\"{branch_url}\"><strong>{branch}</strong></a> &nbsp;|&nbsp;"
-            f"Commit: <a href=\"{commit_url}\"><code>{commit_short}</code></a> &nbsp;|&nbsp;"
-            f"{timestamp[:19]} &nbsp;|&nbsp;"
-            f"{config.get('total_questions', 0)} questions &nbsp;|&nbsp;"
+            f"Branch: <a href=\"{branch_url}\"><strong>{branch}</strong></a> &nbsp;|&nbsp; "
+            f"Commit: <a href=\"{commit_url}\"><code>{commit_short}</code></a> &nbsp;|&nbsp; "
+            f"{timestamp} &nbsp;|&nbsp; "
+            f"{int(_to_float(config.get('total_questions'), 0))} questions &nbsp;|&nbsp; "
             f"Reranker: {config.get('reranker', 'N/A')}"
             f"</p>"
         ),
-        "<h2>Run Configuration</h2>",
-        "<table>",
-        "  <tr><th>Field</th><th>Value</th></tr>",
-        f"  <tr><td>multi_query_expansion</td><td>{bool(config.get('multi_query_expansion', False))}</td></tr>",
-        (
-            f"  <tr><td>groq_available_for_expansion</td>"
-            f"<td>{bool(config.get('groq_available_for_expansion', False))}</td></tr>"
-        ),
-        "</table>",
         "<h2>Retrieval Metrics</h2>",
         "<table>",
         "  <tr><th>k</th><th>Recall</th><th>MRR</th><th>NDCG</th></tr>",
@@ -117,6 +106,45 @@ def build_html(data: dict, branch: str, commit: str, repo: str) -> str:
                 f"    <td class=\"metric\" style=\"color:{metric_color(ndcg)}\">{ndcg:.4f}</td>",
                 "  </tr>",
             ]
+        )
+
+    html_parts.extend(
+        [
+            "</table>",
+            "<h2>Generation Metrics</h2>",
+            "<table>",
+            "  <tr><th>Metric</th><th>Score</th></tr>",
+        ]
+    )
+
+    for metric_name, label in [
+        ("faithfulness", "Faithfulness"),
+        ("relevance", "Relevance"),
+        ("completeness", "Completeness"),
+        ("overall", "Overall"),
+    ]:
+        score = _to_float(generation.get(metric_name), 0.0)
+        html_parts.append(
+            f"  <tr><td>{label}</td><td class=\"metric\" style=\"color:{metric_color(score)}\">{score:.4f}</td></tr>"
+        )
+
+    html_parts.extend(
+        [
+            "</table>",
+            "<h2>Citation Metrics</h2>",
+            "<table>",
+            "  <tr><th>Metric</th><th>Score</th></tr>",
+        ]
+    )
+
+    for key, label in [
+        ("citation_validity", "Validity"),
+        ("citation_coverage", "Coverage"),
+        ("citation_grounding", "Grounding"),
+    ]:
+        score = _to_float(citation.get(key), 0.0)
+        html_parts.append(
+            f"  <tr><td>{label}</td><td class=\"metric\" style=\"color:{metric_color(score)}\">{score:.4f}</td></tr>"
         )
 
     html_parts.extend(
@@ -146,104 +174,31 @@ def build_html(data: dict, branch: str, commit: str, repo: str) -> str:
     html_parts.extend(
         [
             "</table>",
-            "<h2>Expansion Summary</h2>",
-            "<table>",
-            "  <tr><th>Metric</th><th>Value</th></tr>",
-            (
-                f"  <tr><td>avg_queries_per_question</td>"
-                f"<td>{_to_float(expansion.get('avg_queries_per_question'), 1.0):.4f}</td></tr>"
-            ),
-            (
-                f"  <tr><td>fallback_single_query_count</td>"
-                f"<td>{int(_to_float(expansion.get('fallback_single_query_count'), 0.0))}</td></tr>"
-            ),
-            (
-                f"  <tr><td>fallback_single_query_rate</td>"
-                f"<td>{_to_float(expansion.get('fallback_single_query_rate'), 0.0):.4f}</td></tr>"
-            ),
-            "</table>",
             "<h2>By Difficulty</h2>",
             "<table>",
+            "  <tr><th>Difficulty</th><th>Count</th><th>Top-1 Acc</th><th>Recall@5</th><th>MRR@5</th><th>NDCG@5</th><th>Faithfulness</th></tr>",
         ]
     )
 
-    if retrieval_only:
-        html_parts.append(
-            "  <tr><th>Difficulty</th><th>Count</th><th>Recall@1</th><th>Recall@5</th><th>MRR@5</th><th>NDCG@5</th></tr>"
-        )
-    else:
-        html_parts.append(
-            "  <tr><th>Difficulty</th><th>Count</th><th>Recall@1</th><th>Recall@5</th><th>MRR@5</th><th>NDCG@5</th><th>Faithfulness</th></tr>"
-        )
-
     for level in ["Easy", "Medium", "Hard"]:
         metrics = difficulty.get(level, {}) or {}
-        recall_at_1 = _to_float(metrics.get("recall@1"))
-        row = (
-            f"  <tr>"
+        recall_at_1 = _to_float(metrics.get("recall@1"), 0.0)
+        top1_pct = f"{recall_at_1 * 100:.1f}%"
+        html_parts.append(
+            "  <tr>"
             f"<td><strong>{level}</strong></td>"
             f"<td>{int(_to_float(metrics.get('count'), 0.0))}</td>"
-            f"<td class=\"metric\" style=\"color:{metric_color(recall_at_1)}\">{recall_at_1:.4f}</td>"
-            f"<td class=\"metric\">{_to_float(metrics.get('recall@5')):.4f}</td>"
-            f"<td class=\"metric\">{_to_float(metrics.get('mrr@5')):.4f}</td>"
-            f"<td class=\"metric\">{_to_float(metrics.get('ndcg@5')):.4f}</td>"
+            f"<td class=\"metric\" style=\"color:{metric_color(recall_at_1)}\">{top1_pct}</td>"
+            f"<td class=\"metric\">{_to_float(metrics.get('recall@5'), 0.0):.4f}</td>"
+            f"<td class=\"metric\">{_to_float(metrics.get('mrr@5'), 0.0):.4f}</td>"
+            f"<td class=\"metric\">{_to_float(metrics.get('ndcg@5'), 0.0):.4f}</td>"
+            f"<td class=\"metric\">{_to_float(metrics.get('faithfulness'), 0.0):.4f}</td>"
+            "</tr>"
         )
-        if retrieval_only:
-            row += "</tr>"
-        else:
-            row += (
-                f"<td class=\"metric\" style=\"color:{metric_color(_to_float(metrics.get('faithfulness')))}\">"
-                f"{_to_float(metrics.get('faithfulness')):.4f}</td></tr>"
-            )
-        html_parts.append(row)
-
-    if not retrieval_only and generation:
-        html_parts.extend(
-            [
-                "</table>",
-                "<h2>Generation Metrics</h2>",
-                "<table>",
-                "  <tr><th>Metric</th><th>Score</th></tr>",
-            ]
-        )
-        for metric_name in ["faithfulness", "relevance", "completeness", "overall"]:
-            score = _to_float(generation.get(metric_name))
-            html_parts.append(
-                f"  <tr><td>{metric_name.capitalize()}</td><td class=\"metric\" style=\"color:{metric_color(score)}\">{score:.4f}</td></tr>"
-            )
-
-    if not retrieval_only and citation:
-        if not html_parts[-1].startswith("</table>"):
-            html_parts.append("</table>")
-        html_parts.extend(
-            [
-                "<h2>Citation Metrics</h2>",
-                "<table>",
-                "  <tr><th>Metric</th><th>Score</th></tr>",
-            ]
-        )
-        label_map = {
-            "citation_validity": "Validity",
-            "citation_coverage": "Coverage",
-            "citation_grounding": "Grounding",
-        }
-        for key, label in label_map.items():
-            score = _to_float(citation.get(key))
-            html_parts.append(
-                f"  <tr><td>{label}</td><td class=\"metric\" style=\"color:{metric_color(score)}\">{score:.4f}</td></tr>"
-            )
-
-    if not html_parts[-1].startswith("</table>"):
-        html_parts.append("</table>")
 
     html_parts.extend(
         [
-            (
-                f"<p class=\"footer\">"
-                f"Full results attached as JSON. View the run at "
-                f"<a href=\"https://github.com/{repo}/actions\">GitHub Actions</a>."
-                f"</p>"
-            ),
+            "</table>",
             "</body>",
             "</html>",
         ]

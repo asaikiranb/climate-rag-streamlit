@@ -46,18 +46,16 @@ def to_email_payload(
             "recall@5": _safe_float(doc.get("recall@5")),
             "mrr@5": _safe_float(doc.get("mrr@10")),
             "ndcg@5": _safe_float(doc.get("ndcg@5")),
+            "faithfulness": 0.0,
         }
 
-    stage2 = manifest.get("stage2") or {}
-    stage2_name = str(stage2.get("name") or "none")
-    stage2_backend = str(stage2.get("backend") or "unknown")
-    reranker_label = f"{stage2_name} ({stage2_backend})"
+    reranker_name = str(((manifest.get("reranker") or {}).get("name") or "cross-encoder/ms-marco-MiniLM-L-6-v2")).strip()
 
     payload = {
         "timestamp": manifest.get("timestamp") or datetime.now(timezone.utc).isoformat(),
         "config": {
             "total_questions": int((summary_payload.get("retrieval") or {}).get("count") or 0),
-            "reranker": reranker_label,
+            "reranker": reranker_name,
             "multi_query_expansion": False,
             "groq_available_for_expansion": False,
         },
@@ -72,16 +70,22 @@ def to_email_payload(
             "mrr@5": _safe_float(retrieval.get("mrr@10")),
             "ndcg@5": _safe_float(retrieval.get("ndcg@5")),
         },
+        "generation_metrics": {
+            "faithfulness": 0.0,
+            "relevance": 0.0,
+            "completeness": 0.0,
+            "overall": 0.0,
+        },
+        "citation_metrics": {
+            "citation_validity": 0.0,
+            "citation_coverage": 0.0,
+            "citation_grounding": 0.0,
+        },
         "latency_summary": {
             "embed_ms": _latency_row(latency_ms.get("embed") or latency_ms.get("embed_ms")),
             "search_ms": _latency_row(latency_ms.get("search") or latency_ms.get("search_ms")),
             "rerank_ms": _latency_row(latency_ms.get("rerank") or latency_ms.get("rerank_ms")),
             "generate_ms": _latency_row(latency_ms.get("generate") or latency_ms.get("generate_ms")),
-        },
-        "expansion_summary": {
-            "avg_queries_per_question": 1.0,
-            "fallback_single_query_count": int((summary_payload.get("retrieval") or {}).get("count") or 0),
-            "fallback_single_query_rate": 1.0,
         },
         "difficulty_breakdown": difficulty_rows,
     }
@@ -104,12 +108,11 @@ def main(argv: list[str] | None = None) -> int:
     manifest_payload = _read_json(args.manifest) if args.manifest else None
     email_payload = to_email_payload(summary_payload=summary_payload, manifest_payload=manifest_payload)
 
-    output = Path(args.out)
-    output.parent.mkdir(parents=True, exist_ok=True)
-    output.write_text(json.dumps(email_payload, indent=2), encoding="utf-8")
+    output_path = Path(args.out)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(json.dumps(email_payload, indent=2), encoding="utf-8")
     return 0
 
 
 if __name__ == "__main__":
     raise SystemExit(main())
-
