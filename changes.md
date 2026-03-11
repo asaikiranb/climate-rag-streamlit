@@ -16,7 +16,8 @@
 - Final weighted fusion uses dense+sparse+metadata contributions (`retrieve_v2.py:601`).
 
 ## Reranking
-- Reranker now uses a single-stage calibrated CE scoring path before fusion (`rerank_v2.py:162`).
+- Reranker uses a single-stage calibrated CE scoring path before fusion (`rerank_v2.py:162`).
+- Current v4 branch default reranker is `cross-encoder/ms-marco-MiniLM-L-12-v2` (single-stage only).
 
 ## Scoring + Reporting
 - Uses golden CSV contract with manifest + per-query outputs (`.github/workflows/eval-ci.yml:55`, `.github/workflows/eval-ci.yml:70`).
@@ -29,5 +30,5 @@
 
 ## Model / Backend Continuity
 - Embedding model remains `BAAI/bge-m3`.
-- Reranking model remains `cross-encoder/ms-marco-MiniLM-L-6-v2`.
+- Reranking model is now changed to `cross-encoder/ms-marco-MiniLM-L-12-v2`.
 - Backend is now implemented on Qdrant for v4 CI path (instead of Chroma in v1 CI path).
