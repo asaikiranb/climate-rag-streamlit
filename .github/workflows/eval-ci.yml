@@ -25,16 +25,6 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y tesseract-ocr
 
-      - name: Install and start Ollama
-        run: |
-          curl -fsSL https://ollama.com/install.sh | sh
-          ollama serve &
-          sleep 5
-          ollama pull qwen2.5:1.5b
-          pkill ollama || true
-          sleep 2
-          echo "Ollama installed, model cached, server stopped to save RAM"
-
       # ---- Python ----
       - name: Set up Python 3.11
         uses: actions/setup-python@v5
@@ -47,21 +37,38 @@ jobs:
           pip install --upgrade pip
           pip install -r requirements.txt
 
-      # ---- Run Eval ----
-      # Reranker: HF Inference API (HF_TOKEN) — ctxl-rerank-v2
-      # LLM Judge: Local Ollama (qwen2.5:1.5b) — no API key needed
-      - name: Run comprehensive evaluation
+      # ---- Run Eval (primary contract: doc/page v2) ----
+      - name: Run upgraded retrieval evaluation
         env:
-          CHROMA_COLLECTION_NAME: hvac_documents
+          EVAL_PRIMARY_CONTRACT: doc_page_v2
+          EVAL_EMAIL_COMPAT_MODE: "true"
+          MODEL_DEVICE: cpu
           TOKENIZERS_PARALLELISM: "false"
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
-          OLLAMA_JUDGE_MODEL: qwen2.5:1.5b
-          OLLAMA_MODEL: qwen2.5:1.5b
+          DENSE_FUSION_WEIGHT: "0.62"
+          SPARSE_FUSION_WEIGHT: "0.30"
+          METADATA_PRIOR_WEIGHT: "0.08"
+          EARLY_PAGE_PRIOR: "0.05"
+          DOC_FIRST_RERANK_ENABLED: "false"
         run: |
-          python run_contextual_eval.py \
-            --retrieval-only \
-            --output eval_results_comprehensive.json \
+          python -m eval.run \
+            --input eval/golden.csv \
+            --out eval_out/ci_primary \
+            --top-k 10 \
+            --anchor-threshold 80 \
+            --profile upgraded \
+            --backend qdrant \
+            --embedding-model BAAI/bge-m3 \
+            --sparse-mode bm42 \
+            --candidate-k 12 \
+            --stage1-pool-size 80 \
+            --qdrant-path ./qdrant_db_ci \
+            --qdrant-collection hvac_documents_qdrant_ci \
             2>&1 | tee eval_output.log
+          cp eval_out/ci_primary/eval_results_comprehensive.json eval_results_comprehensive.json
+          cp eval_out/ci_primary/eval_manifest.json eval_manifest.json
+          cp eval_out/ci_primary/summary.json summary.json
+          cp eval_out/ci_primary/per_query.jsonl per_query.jsonl
           echo "Eval complete"
 
       # ---- Upload artifacts ----
@@ -72,6 +79,9 @@ jobs:
           name: eval-results-${{ env.SAFE_BRANCH }}
           path: |
             eval_results_comprehensive.json
+            eval_manifest.json
+            summary.json
+            per_query.jsonl
             eval_output.log
           retention-days: 30
 

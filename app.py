@@ -1,12 +1,20 @@
 import streamlit as st
 import streamlit.components.v1 as components
+from pathlib import Path
 
-from retrieve import HybridRetriever
-from rerank import CrossEncoderReranker
+from retrieve_v2 import HybridRetrieverV2
+from rerank_v2 import TwoStageCalibratedReranker
 from llm import GenerationClient
 from html_renderer import build_answer_html
 from query import expand_query
-from config import EXAMPLE_QUERIES
+from config import (
+    EXAMPLE_QUERIES,
+    INGEST_EMBEDDING_MODEL,
+    QDRANT_COLLECTION,
+    QDRANT_PATH,
+    SPARSE_MODE,
+    VECTOR_DB_BACKEND,
+)
 try:
     import voice
 except Exception:
@@ -66,12 +74,34 @@ st.markdown("""
 
 @st.cache_resource
 def get_retriever():
-    return HybridRetriever()
+    sparse_mode = SPARSE_MODE if SPARSE_MODE in {"none", "bm42", "splade"} else "bm42"
+
+    def _has_qdrant_collection(path: str, collection: str) -> bool:
+        storage = Path(path) / "collection" / collection / "storage.sqlite"
+        return storage.exists()
+
+    candidates = [
+        (QDRANT_PATH, QDRANT_COLLECTION),
+        ("./qdrant_db_ci", "hvac_documents_qdrant_ci"),
+        ("./qdrant_db", "hvac_documents_qdrant"),
+    ]
+    qdrant_path, qdrant_collection = next(
+        ((path, collection) for path, collection in candidates if _has_qdrant_collection(path, collection)),
+        (QDRANT_PATH, QDRANT_COLLECTION),
+    )
+
+    return HybridRetrieverV2(
+        backend="qdrant",
+        embedding_model=INGEST_EMBEDDING_MODEL,
+        sparse_mode=sparse_mode,
+        qdrant_path=qdrant_path,
+        qdrant_collection=qdrant_collection,
+    )
 
 
 @st.cache_resource
 def get_reranker_model():
-    return CrossEncoderReranker()
+    return TwoStageCalibratedReranker()
 
 
 @st.cache_resource
@@ -164,7 +194,7 @@ def _render_voice_recorder(whisper_model):
     return query
 
 
-def _retrieve(query: str, retriever: HybridRetriever, reranker: CrossEncoderReranker, generator: GenerationClient) -> list:
+def _retrieve(query: str, retriever: HybridRetrieverV2, reranker: TwoStageCalibratedReranker, generator: GenerationClient) -> list:
     """Expansion, search, and reranking pipeline."""
     # Use generator's groq client for expansion (or just use dedicated client)
     queries = expand_query(query, generator.groq)
@@ -180,7 +210,7 @@ def _retrieve(query: str, retriever: HybridRetriever, reranker: CrossEncoderRera
     return reranker.rerank(query, candidates)
 
 
-def _render_answer(query: str, retriever: HybridRetriever, reranker: CrossEncoderReranker, generator: GenerationClient):
+def _render_answer(query: str, retriever: HybridRetrieverV2, reranker: TwoStageCalibratedReranker, generator: GenerationClient):
     """Execute the full RAG pipeline and render the result."""
     with st.spinner("Searching..."):
         try:

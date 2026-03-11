@@ -1,5 +1,8 @@
 # Environment variables
 .env
+.env.local
+secrets/*.json
+climaterag-*.json
 
 # Python
 __pycache__/
@@ -10,6 +13,8 @@ __pycache__/
 venv/
 env/
 ENV/
+.venv/
+.venv*/
 build/
 develop-eggs/
 dist/
@@ -37,17 +42,35 @@ wheels/
 *~
 .DS_Store
 
+# Web app
+node_modules/
+.next/
+*.tsbuildinfo
+
+# Test caches
+.pytest_cache/
+
+# Local runtime/model caches
+.runtime-cache/
+.paddle-home/
+.paddleocr/
+
 # Data files — PDFs not needed at runtime, chroma_db has the index
 data/
 Saikiran corpus/
 hvac-rag/
 Eval Dataset/
+drive-download-*/
 
 # Local eval result snapshots
 eval_results_*.json
 
 # Logs
 *.log
+
+# Local debug outputs
+image_debug_runs/
+tmp_run_*.py
 
 # Jupyter Notebook
 .ipynb_checkpoints
@@ -57,3 +80,6 @@ eval_results_*.json
 
 # Eval results (generated)
 eval/results/
+eval_out/
+versions/results/
+qdrant_db/
