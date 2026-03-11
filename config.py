@@ -69,7 +69,7 @@ METADATA_FILENAME_WEIGHT = float(os.getenv("METADATA_FILENAME_WEIGHT", "0.15"))
 EARLY_PAGE_PRIOR = float(os.getenv("EARLY_PAGE_PRIOR", "0.05"))
 
 # V2 reranker controls
-RERANK_STAGE1_MODEL = os.getenv("RERANK_STAGE1_MODEL", "cross-encoder/ms-marco-MiniLM-L-6-v2")
+RERANK_STAGE1_MODEL = os.getenv("RERANK_STAGE1_MODEL", "cross-encoder/ms-marco-MiniLM-L-12-v2")
 RERANK_STAGE1_POOL_SIZE = int(os.getenv("RERANK_STAGE1_POOL_SIZE", "120"))
 DOC_FIRST_RERANK_ENABLED = _env_bool("DOC_FIRST_RERANK_ENABLED", True)
 DOC_FIRST_AGGREGATE_TOP_K = int(os.getenv("DOC_FIRST_AGGREGATE_TOP_K", "3"))
@@ -85,10 +85,10 @@ EVAL_PRIMARY_CONTRACT = os.getenv("EVAL_PRIMARY_CONTRACT", "doc_page_v2").strip(
 EVAL_EMAIL_COMPAT_MODE = _env_bool("EVAL_EMAIL_COMPAT_MODE", True)
 
 # Reranker model (same size class: ~22M–70M params). Options:
-#   cross-encoder/ms-marco-MiniLM-L-6-v2   (default, 22M, fast ~280ms, recall@1 ~67.5%)
-#   cross-encoder/ms-marco-MiniLM-L-12-v2  (33M, ~540ms, recall@1 ~66.7%)
+#   cross-encoder/ms-marco-MiniLM-L-12-v2  (default, 33M, stronger than L-6, slower)
+#   cross-encoder/ms-marco-MiniLM-L-6-v2   (22M, faster)
 #   mixedbread-ai/mxbai-rerank-xsmall-v1  (70M, ~1.4s rerank, recall@1 ~68.4%, recall@5 ~89.7%)
-RERANKER_MODEL = os.getenv("RERANKER_MODEL", "cross-encoder/ms-marco-MiniLM-L-6-v2")
+RERANKER_MODEL = os.getenv("RERANKER_MODEL", "cross-encoder/ms-marco-MiniLM-L-12-v2")
 
 # Retrieval Weighting
 RETRIEVER_WEIGHT = 0.45   # higher = trust retriever rank more in final fusion (helps recall@1)
