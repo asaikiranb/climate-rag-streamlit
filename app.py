@@ -133,23 +133,26 @@ def _init_voice_state():
 
 def _render_voice_recorder(whisper_model):
     """Render the mic button and audio recorder."""
-    col_input, col_mic = st.columns([11, 1])
+    url_query = st.query_params.get("q", "")
+    query_from_voice = None
+    if url_query:
+        st.session_state["query_input"] = url_query
+        st.query_params.clear()
+    elif st.session_state["voice_query"]:
+        query_from_voice = st.session_state["voice_query"]
+        st.session_state["query_input"] = query_from_voice
+        st.session_state["voice_query"] = ""
 
-    with col_input:
-        url_query = st.query_params.get("q", "")
-        if url_query:
-            st.session_state["query_input"] = url_query
-            st.query_params.clear()
-        elif st.session_state["voice_query"]:
-            st.session_state["query_input"] = st.session_state["voice_query"]
-            st.session_state["voice_query"] = ""
-
-        query = st.text_input(
-            "Ask a question",
-            placeholder="e.g. What is India's cooling action plan?",
-            label_visibility="collapsed",
-            key="query_input",
-        )
+    col_form, col_mic = st.columns([11, 1])
+    with col_form:
+        with st.form("query_form", clear_on_submit=False):
+            query = st.text_input(
+                "Ask a question",
+                placeholder="e.g. What is India's cooling action plan?",
+                label_visibility="collapsed",
+                key="query_input",
+            )
+            form_submitted = st.form_submit_button("Search")
 
     with col_mic:
         mic_clicked = st.button(
@@ -191,6 +194,8 @@ def _render_voice_recorder(whisper_model):
             unsafe_allow_html=True,
         )
 
+    if query_from_voice is not None and not form_submitted:
+        return query_from_voice
     return query
 
 
@@ -260,7 +265,6 @@ def main():
 
     if st.session_state["just_transcribed"]:
         st.session_state["just_transcribed"] = False
-        query = ""
 
     if query:
         _render_answer(query, retriever, reranker, generator)
