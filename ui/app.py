@@ -13,7 +13,6 @@ from config import (
     QDRANT_COLLECTION,
     QDRANT_PATH,
     SPARSE_MODE,
-    VECTOR_DB_BACKEND,
 )
 try:
     from utils import voice as voice_mod
@@ -73,13 +72,14 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 
+def _has_qdrant_collection(path: str, collection: str) -> bool:
+    storage = Path(path) / "collection" / collection / "storage.sqlite"
+    return storage.exists()
+
+
 @st.cache_resource
 def get_retriever():
     sparse_mode = SPARSE_MODE if SPARSE_MODE in {"none", "bm42", "splade"} else "bm42"
-
-    def _has_qdrant_collection(path: str, collection: str) -> bool:
-        storage = Path(path) / "collection" / collection / "storage.sqlite"
-        return storage.exists()
 
     candidates = [
         (QDRANT_PATH, QDRANT_COLLECTION),
@@ -257,7 +257,18 @@ def main():
     st.title("Retrieval Augmented Generation for Climate Challenges")
     st.caption("Search across your document collection")
 
-    retriever = get_retriever()
+    try:
+        retriever = get_retriever()
+    except RuntimeError as e:
+        st.error(
+            "Document index not found. The app requires a pre-built vector index. "
+            "For local use, run: `python ingest_v2.py --source-dir ./Eval\\ Dataset --backend chroma` "
+            "Then ensure `chroma_db` is available, or set `VECTOR_DB_BACKEND=chroma` for cloud deployments."
+        )
+        st.info("You can still browse the example queries below; search will work once the index is set up.")
+        _render_example_queries()
+        return
+
     reranker = get_reranker_model()
     generator = get_generator()
     whisper_model = load_whisper_model()
