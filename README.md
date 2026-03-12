@@ -1,236 +1,162 @@
 <p align="center">
-  <img src="https://img.shields.io/badge/RAG-Climate-2ea043?style=for-the-badge" alt="RAG Climate" />
+  <strong>University of Washington · MS Data Science Capstone Project · March 2026</strong><br/>
+  <strong>Mentor: <a href="https://www.linkedin.com/in/abhishekvarma2/">Abhishek Varma</a></strong><br/>
+  <strong>Capstone Team: <a href="https://www.linkedin.com/in/annangisaikiranbabu/">Saikiran Babu Annangi</a>, <a href="https://www.linkedin.com/in/balajiboopal/">Balaji Boopal</a>, <a href="https://www.linkedin.com/in/sagorika-ghosh/">Sagorika Ghosh</a>, <a href="https://www.linkedin.com/in/mithul-raaj-772ba623b/">Mithul Raaj</a>, <a href="https://www.linkedin.com/in/rohithcr/">Rohith CR</a></strong>
 </p>
 
-<h1 align="center">RAG Climate</h1>
+---
+
 <p align="center">
-  <strong>Retrieval-augmented generation for HVAC & climate technical documentation</strong>
+  <strong>In collaboration with <a href="https://www.contextual.ai/">Contextual AI</a></strong>
+</p>
+
+---
+
+# Retrieval Augmented Generation for Climate Challenges
+
+<p align="center">
+  <em>Search across your document collection.</em>
 </p>
 
 <p align="center">
-  <a href="https://rag-climate-butyqckrqjlyq78yjytjfh.streamlit.app"><img src="https://static.streamlit.io/badges/streamlit_badge_black_white.svg" alt="Try it" /></a>
-  <a href="https://streamlit.io"><img src="https://img.shields.io/badge/Open_in-Streamlit-FF4B4B?style=flat-square&logo=streamlit" alt="Streamlit" /></a>
+  <a href="https://rag-climate-butyqckrqjlyq78yjytjfh.streamlit.app"><img src="https://static.streamlit.io/badges/streamlit_badge_black_white.svg" alt="Try it live" /></a>
   <a href="https://www.python.org"><img src="https://img.shields.io/badge/Python-3.9+-3776AB?style=flat-square&logo=python&logoColor=white" alt="Python" /></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square" alt="License" /></a>
-  <a href="https://github.com/asaikiranb/RAG-climate/graphs/contributors"><img src="https://img.shields.io/github/contributors/asaikiranb/RAG-climate?style=flat-square" alt="Contributors" /></a>
-  <a href="https://github.com/asaikiranb/RAG-climate/issues"><img src="https://img.shields.io/github/issues/asaikiranb/RAG-climate?style=flat-square" alt="Issues" /></a>
-  <a href="https://github.com/asaikiranb/RAG-climate/forks"><img src="https://img.shields.io/github/forks/asaikiranb/RAG-climate?style=flat-square" alt="Forks" /></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square" alt="MIT" /></a>
 </p>
 
 ---
 
-## Overview
+## The App
 
-RAG Climate is a production-ready RAG system that helps HVAC engineers and technicians get **accurate, source-grounded answers** from technical documentation. It combines hybrid retrieval, cross-encoder reranking, and grounded generation to reduce hallucinations and improve auditability.
+<p align="center">
+  <img src="docs/images/app-ui.png" alt="Retrieval Augmented Generation for Climate Challenges" width="800" />
+</p>
 
-### Why RAG Climate?
+<p align="center">
+  <strong>Retrieval Augmented Generation for Climate Challenges</strong><br/>
+  <em>Search across your document collection.</em>
+</p>
 
-| Challenge | Solution |
-|-----------|----------|
-| LLMs hallucinate on safety procedures | Strict source-grounded generation with citations |
-| Keyword search misses nuance | Hybrid semantic + BM25 retrieval |
-| Top results may not be best | Cross-encoder reranking for precision |
-| Non-English queries | Voice input with multilingual transcription (Whisper) |
-
-### Features
-
-- **Hybrid retrieval** — Dense embeddings + BM25/SPLADE with RRF fusion
-- **Cross-encoder reranking** — Calibrated two-stage reranker
-- **Qdrant / ChromaDB** — Flexible vector store backends
-- **Voice input** — Speak questions in English or Indian languages
-- **Evaluation suite** — Golden CSV benchmarks, retrieval & generation metrics
-- **Streamlit app** — Minimal, responsive UI
+This app queries a complex collection of climate and refrigerant documents. Users type a question or speak it; the system retrieves relevant passages from the indexed corpus, reranks them, and returns an answer with source citations. Input is accepted as text or voice. No plugins or additional tooling are required. Once the corpus is loaded, users can run queries as needed.
 
 ---
 
-## Quick Start
+## Who Is This For?
+
+The app is designed for professionals and students who work with climate policy, cooling systems, or refrigerant standards. This includes HVAC engineers, refrigeration technicians, policy analysts reviewing climate and cooling regulations, and students preparing for certification exams. The corpus covers Montreal Protocol guidance, safety manuals, installation procedures, and related materials. It is intended for users who need to retrieve specific information from large document sets without manually scrolling through hundreds of pages.
+
+---
+
+## Features
+
+### Ask in Any Language
+
+Users can type or speak their questions. The app supports both input modes. Voice input works in English and Indian languages; the microphone transcribes speech into text before running the search. No additional configuration is required. Click the mic, speak, and the query is submitted automatically.
+
+### Source-Grounded Answers
+
+Every answer is grounded in the indexed documents. The system retrieves relevant chunks, ranks them, and passes only the top-ranked passages to the language model. Answers include citations so users can verify and cite the source material.
+
+### Smart Search
+
+The retrieval pipeline combines dense embeddings with sparse retrieval (BM25 and SPLADE) for improved recall. A two-stage cross-encoder reranker refines the candidate set. The result is more relevant than plain keyword search.
+
+### Quick Suggestions
+
+The "Try asking" buttons provide example queries such as *How to handle a refrigerant leak?* and *India's Montreal Protocol achievements?* to help users get started quickly.
+
+### Flexible Storage
+
+The app supports ChromaDB for local runs and Qdrant for scaled deployments. Users choose the backend that fits their environment.
+
+---
+
+## How to Get Started
+
+**Clone and install.** Clone the repository and install dependencies.
 
 ```bash
 git clone https://github.com/asaikiranb/RAG-climate.git
 cd RAG-climate
 pip install -r requirements.txt
+```
+
+**Configure.** Copy the example environment file and add your `GROQ_API_KEY`.
+
+```bash
 cp .env.example .env
-# Add your GROQ_API_KEY (required for LLM) and optionally HF_TOKEN
 ```
 
-**Launch the app:**
+**Ingest documents.** Point the ingest script at a folder of PDFs. Use `chroma` or `qdrant` as the backend.
+
 ```bash
-streamlit run app.py
+python ingest_v2.py --source-dir ./Eval\ Dataset --backend qdrant
 ```
 
-Open [localhost:8501](http://localhost:8501) and ask a question (e.g. *"How to handle a refrigerant leak?"*).
-
----
-
-## Installation
-
-### Prerequisites
-
-- Python 3.9+
-- [Tesseract OCR](https://github.com/tesseract-ocr/tesseract) (for scanned PDFs)
-- 4GB+ RAM (8GB recommended for embedding + reranker models)
-
-### Setup
-
-1. Clone and install dependencies:
-   ```bash
-   git clone https://github.com/asaikiranb/RAG-climate.git
-   cd RAG-climate
-   pip install -r requirements.txt
-   ```
-
-2. Configure environment:
-   ```bash
-   cp .env.example .env
-   ```
-   Edit `.env`:
-   - `GROQ_API_KEY` — Required for LLM answers ([get one](https://console.groq.com))
-   - `HF_TOKEN` — Optional; needed for gated embedding models
-   - `CHROMA_COLLECTION_NAME` — Collection name (default: `hvac_documents`)
-
-3. Ingest documents (if you have PDFs):
-   ```bash
-   # Original pipeline (ChromaDB)
-   python ingest.py
-
-   # Page-aware v2 (Chroma or Qdrant)
-   python ingest_v2.py --source-dir ./Eval\ Dataset --backend qdrant
-   ```
-
----
-
-## Usage
-
-### Web App
+**Run the app.** Start the Streamlit server and open the URL in your browser.
 
 ```bash
 streamlit run app.py
 ```
 
-- Type or speak (mic button) your question
-- Click example queries for quick demos
-- Answers cite sources with clickable reference pills
+---
 
-### Document Ingestion
+## Try It Live
 
-| Command | Use Case |
-|---------|----------|
-| `python ingest.py` | Original ChromaDB pipeline, reads `./Eval Dataset` |
-| `python ingest_v2.py --source-dir PATH --backend qdrant` | Page-aware chunks, hash-based upserts, Chroma or Qdrant |
+No setup is required for the hosted demo. Use the link below to run the app in your browser.
 
-### Evaluation
-
-```bash
-# Contextual eval (JSONL dataset)
-python run_contextual_eval.py --output results.json [--retrieval-only] [--limit N]
-
-# Offline eval (golden CSV, baseline vs upgraded)
-python -m eval.run --input eval/golden.csv --out eval_out/baseline --profile baseline
-python -m eval.run --input eval/golden.csv --out eval_out/upgraded --profile upgraded --backend qdrant
-```
-
-### Top-level CLI
-
-```bash
-python contextual_hvac_rag.py eval --input eval/golden.csv --out eval_out/upgraded
-```
+**[Open RAG Climate](https://rag-climate-butyqckrqjlyq78yjytjfh.streamlit.app)**
 
 ---
 
-## Project Structure
+## Voice Input
 
-```
-RAG-climate/
-├── app.py                  # Streamlit entry point
-├── config.py               # Central configuration
-├── ingest.py               # Ingestion CLI (v1)
-├── ingest_v2.py            # Ingestion CLI (v2)
-├── run_contextual_eval.py  # Contextual eval runner
-├── contextual_hvac_rag.py  # Top-level CLI
-├── format_email.py         # Eval results → HTML email
-├── core/                   # RAG pipeline components
-│   ├── retrieve.py         # Hybrid retriever (baseline)
-│   ├── retrieve_v2.py      # V2 retriever (dense+sparse)
-│   ├── rerank.py           # Cross-encoder reranker
-│   ├── rerank_v2.py        # Two-stage calibrated reranker
-│   ├── llm.py              # Generation (Groq + Ollama)
-│   └── query.py            # Query expansion
-├── ingestion/              # Document ingestion
-│   ├── ingest.py           # ChromaDB pipeline
-│   └── ingest_v2.py        # Page-aware (Chroma/Qdrant)
-├── ui/                     # User interface
-│   ├── app.py              # Streamlit app
-│   └── html_renderer.py    # Answer + sources HTML
-├── utils/                  # Shared utilities
-│   ├── hf_local.py         # HuggingFace cache resolution
-│   ├── pipeline_utils.py   # Chunking helpers
-│   └── voice.py            # Whisper transcription
-├── eval/                   # Evaluation package
-│   ├── loader.py, metrics.py, writers.py
-│   ├── run.py              # Offline eval entry
-│   └── golden.csv          # Golden benchmark
-├── eval_out/               # Eval outputs
-├── chroma_db/              # ChromaDB storage (optional)
-├── qdrant_db_ci/           # Qdrant storage (optional)
-├── docs/                   # Architecture notes
-├── tests/
-└── requirements.txt
-```
+<p align="center">
+  <img src="docs/images/app-ui.png" alt="Voice input with Mic button" width="600" />
+</p>
+
+Use the **Mic** button next to the search bar. Speak in English or Indian languages; the app transcribes your speech and runs the search automatically. No need to press Enter after speaking.
+
+---
+
+## Retrieval & Reranking
+
+The pipeline combines dense vector search with sparse retrieval (BM25 and SPLADE) to capture both semantic and lexical matches. A two-stage cross-encoder reranker narrows the candidate set and applies calibration. Query expansion rewrites the user question before retrieval. The final answer is generated from the top-ranked chunks using the configured LLM (e.g., GROQ).
+
+---
+
+## Supported Documents
+
+The app ingests PDFs. Training manuals, protocol documents, safety guides, and installation procedures are supported. The ingestion script processes the directory specified via `--source-dir` and chunks, embeds, and indexes each PDF. ChromaDB stores vectors locally; Qdrant supports remote deployment and scale.
 
 ---
 
 ## Configuration
 
-Key environment variables (see `.env.example`):
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `GROQ_API_KEY` | — | Required for LLM |
-| `HF_TOKEN` | — | For gated models |
-| `CHROMA_COLLECTION_NAME` | `hvac_documents` | Chroma collection |
-| `VECTOR_DB_BACKEND` | `qdrant` | `chroma` or `qdrant` |
-| `QDRANT_PATH` | `./qdrant_db_ci` | Qdrant storage path |
-| `INGEST_SOURCE_DIR` | `./Eval Dataset` | PDF source directory |
-| `WHISPER_MODEL` | `medium` | `small` for low RAM |
+Set `GROQ_API_KEY` in `.env` for LLM generation. Choose a vector backend in `config.py` (`chroma` or `qdrant`). Sparse mode can be `bm42` or `splade` depending on your setup. Change `--source-dir` to point at your own document folder.
 
 ---
 
-## Architecture
+## Evaluation
 
+For benchmarking and reproducibility:
+
+```bash
+python run_contextual_eval.py --output results.json
+python -m eval.run --input eval/golden.csv --out eval_out/upgraded --profile upgraded
 ```
-┌──────────────┐     ┌──────────────┐     ┌──────────────┐
-│   Query      │────▶│  Retrieval    │────▶│  Reranking   │
-│  Expansion   │     │  (Hybrid)     │     │ (Cross-Enc)  │
-└──────────────┘     └──────────────┘     └──────────────┘
-                            │                     │
-                            ▼                     ▼
-                     ┌─────────────────────────────────┐
-                     │     Vector Store (Qdrant/Chroma)  │
-                     └─────────────────────────────────┘
-                                                 │
-                                                 ▼
-                     ┌─────────────────────────────────┐
-                     │   LLM (Groq / Ollama fallback)   │
-                     └─────────────────────────────────┘
-```
-
----
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/your-feature`)
-3. Commit your changes
-4. Push and open a Pull Request
 
 ---
 
 ## License
 
-MIT License. See [LICENSE](LICENSE) for details.
+MIT · [LICENSE](LICENSE)
 
 ---
 
-## Acknowledgments
-
-Capstone project sponsored by [Abhishek Varma](https://www.linkedin.com/in/abhishekvarma2/).
+<p align="center">
+  <strong>University of Washington MS Data Science Capstone · March 2026</strong><br/>
+  <strong>Mentor: <a href="https://www.linkedin.com/in/abhishekvarma2/">Abhishek Varma</a></strong> · 
+  <strong>Capstone Team: <a href="https://www.linkedin.com/in/annangisaikiranbabu/">Saikiran Babu Annangi</a>, <a href="https://www.linkedin.com/in/balajiboopal/">Balaji Boopal</a>, <a href="https://www.linkedin.com/in/sagorika-ghosh/">Sagorika Ghosh</a>, <a href="https://www.linkedin.com/in/mithul-raaj-772ba623b/">Mithul Raaj</a>, <a href="https://www.linkedin.com/in/rohithcr/">Rohith CR</a></strong> · 
+  <strong><a href="https://www.contextual.ai/">Contextual AI</a></strong>
+</p>
