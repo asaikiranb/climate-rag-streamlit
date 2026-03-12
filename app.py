@@ -134,13 +134,14 @@ def _init_voice_state():
 def _render_voice_recorder(whisper_model):
     """Render the mic button and audio recorder."""
     url_query = st.query_params.get("q", "")
-    query_from_voice = None
+    
     if url_query:
         st.session_state["query_input"] = url_query
+        st.session_state["last_search"] = url_query
         st.query_params.clear()
     elif st.session_state["voice_query"]:
-        query_from_voice = st.session_state["voice_query"]
-        st.session_state["query_input"] = query_from_voice
+        st.session_state["query_input"] = st.session_state["voice_query"]
+        st.session_state["last_search"] = ""
         st.session_state["voice_query"] = ""
 
     col_form, col_mic = st.columns([11, 1])
@@ -194,9 +195,10 @@ def _render_voice_recorder(whisper_model):
             unsafe_allow_html=True,
         )
 
-    if query_from_voice is not None and not form_submitted:
-        return query_from_voice
-    return query
+    if form_submitted:
+        st.session_state["last_search"] = query
+        
+    return st.session_state.get("last_search", "")
 
 
 def _retrieve(query: str, retriever: HybridRetrieverV2, reranker: TwoStageCalibratedReranker, generator: GenerationClient) -> list:
