@@ -13,7 +13,7 @@ from typing import Any
 EXPECTED_HEADERS = ["Question", "gold_sources", "metadata", "page_range", "anchor_text"]
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True)
 class EvalRow:
     """Normalized evaluation input row."""
 

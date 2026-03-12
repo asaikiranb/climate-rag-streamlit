@@ -14,10 +14,10 @@ import argparse
 import time
 from typing import List, Dict
 
-from retrieve import HybridRetriever
-from rerank import CrossEncoderReranker
-from llm import GenerationClient
-from query import expand_query
+from core.retrieve import HybridRetriever
+from core.rerank import CrossEncoderReranker
+from core.llm import GenerationClient
+from core.query import expand_query
 from eval.retrieval_metrics import compute_retrieval_metrics_at_k
 from eval.metrics import compute_custom_metrics
 from eval.generation_metrics_ollama import judge_generation

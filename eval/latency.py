@@ -7,7 +7,7 @@ from statistics import mean
 from typing import Iterable
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True)
 class QueryLatency:
     """Internal latency breakdown for a single evaluation row."""
 

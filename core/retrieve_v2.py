@@ -53,7 +53,7 @@ from config import (
     SPLADE_MODEL,
     VECTOR_DB_BACKEND,
 )
-from hf_local import resolve_local_snapshot
+from utils.hf_local import resolve_local_snapshot
 
 TOKEN_PATTERN = re.compile(r"[a-z0-9]+(?:[-_/][a-z0-9]+)?")
 STOPWORDS = {
@@ -149,7 +149,7 @@ def minmax(values: list[float]) -> list[float]:
     return [(value - low) / (high - low) for value in cleaned]
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True)
 class Candidate:
     candidate_id: str
     document: str

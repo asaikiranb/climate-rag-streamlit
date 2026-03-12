@@ -1,0 +1,55 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "rag-climate"
+version = "1.0.0"
+description = "RAG system for HVAC and climate technical documentation"
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.9"
+authors = [{name = "RAG Climate Contributors"}]
+keywords = ["rag", "hvac", "climate", "retrieval", "llm"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+dependencies = [
+    "pymupdf>=1.24.0",
+    "sentence-transformers>=5.0.0",
+    "chromadb==1.5.0",
+    "rank-bm25>=0.2.2",
+    "nltk>=3.8.0",
+    "groq>=1.0.0",
+    "streamlit>=1.45.0",
+    "python-dotenv>=1.0.0",
+    "tiktoken>=0.5.0",
+    "numpy>=1.26.0",
+    "faster-whisper>=1.0.0",
+    "soundfile>=0.12.1",
+    "transformers>=4.51.0",
+    "torch>=2.0.0",
+    "huggingface_hub>=0.23.0",
+    "contextual-client>=0.1.0",
+    "pytesseract>=0.3.10",
+    "Pillow>=10.0.0",
+    "requests>=2.31.0",
+    "qdrant-client>=1.11.1",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=7.0"]
+
+[project.scripts]
+rag-climate = "rag_climate.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["rag_climate*", "eval*"]
