@@ -1,4 +1,4 @@
-# Changes from v1 to v4 (Text Pipeline)
+# Changes from v1 to v4 (Text Pipeline) final
 
 ## Ingestion / Indexing
 - New ingestion pipeline is page-aware with OCR fallback and section splitting (`ingest_v2.py:152`, `ingest_v2.py:167`).
