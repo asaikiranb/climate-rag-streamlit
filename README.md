@@ -1,18 +1,11 @@
+# Retrieval Augmented Generation for Climate Challenges
+
 <p align="center">
   <strong>University of Washington · MS Data Science Capstone Project · March 2026</strong><br/>
   <strong>Mentor: <a href="https://www.linkedin.com/in/abhishekvarma2/">Abhishek Varma</a></strong><br/>
-  <strong>Capstone Team: <a href="https://www.linkedin.com/in/annangisaikiranbabu/">Saikiran Babu Annangi</a>, <a href="https://www.linkedin.com/in/balajiboopal/">Balaji Boopal</a>, <a href="https://www.linkedin.com/in/sagorika-ghosh/">Sagorika Ghosh</a>, <a href="https://www.linkedin.com/in/mithul-raaj-772ba623b/">Mithul Raaj</a>, <a href="https://www.linkedin.com/in/rohithcr/">Rohith CR</a></strong>
-</p>
-
----
-
-<p align="center">
+  <strong>Capstone Team: <a href="https://www.linkedin.com/in/annangisaikiranbabu/">Saikiran Babu Annangi</a>, <a href="https://www.linkedin.com/in/balajiboopal/">Balaji Boopal</a>, <a href="https://www.linkedin.com/in/sagorika-ghosh/">Sagorika Ghosh</a>, <a href="https://www.linkedin.com/in/mithul-raaj-772ba623b/">Mithul Raaj</a>, <a href="https://www.linkedin.com/in/rohithcr/">Rohith CR</a></strong><br/>
   <strong>In collaboration with <a href="https://www.contextual.ai/">Contextual AI</a></strong>
 </p>
-
----
-
-# Retrieval Augmented Generation for Climate Challenges
 
 <p align="center">
   <em>Search across your document collection.</em>
@@ -151,12 +144,3 @@ python -m eval.run --input eval/golden.csv --out eval_out/upgraded --profile upg
 ## License
 
 MIT · [LICENSE](LICENSE)
-
----
-
-<p align="center">
-  <strong>University of Washington MS Data Science Capstone · March 2026</strong><br/>
-  <strong>Mentor: <a href="https://www.linkedin.com/in/abhishekvarma2/">Abhishek Varma</a></strong> · 
-  <strong>Capstone Team: <a href="https://www.linkedin.com/in/annangisaikiranbabu/">Saikiran Babu Annangi</a>, <a href="https://www.linkedin.com/in/balajiboopal/">Balaji Boopal</a>, <a href="https://www.linkedin.com/in/sagorika-ghosh/">Sagorika Ghosh</a>, <a href="https://www.linkedin.com/in/mithul-raaj-772ba623b/">Mithul Raaj</a>, <a href="https://www.linkedin.com/in/rohithcr/">Rohith CR</a></strong> · 
-  <strong><a href="https://www.contextual.ai/">Contextual AI</a></strong>
-</p>
