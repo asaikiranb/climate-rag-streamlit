@@ -1,20 +1,23 @@
 # Retrieval Augmented Generation for Climate Challenges
 
-<p align="center">
-  <strong>University of Washington · MS Data Science Capstone Project · March 2026</strong><br/>
-  <strong>Mentor: <a href="https://www.linkedin.com/in/abhishekvarma2/">Abhishek Varma</a></strong><br/>
-  <strong>Capstone Team: <a href="https://www.linkedin.com/in/annangisaikiranbabu/">Saikiran Babu Annangi</a>, <a href="https://www.linkedin.com/in/balajiboopal/">Balaji Boopal</a>, <a href="https://www.linkedin.com/in/sagorika-ghosh/">Sagorika Ghosh</a>, <a href="https://www.linkedin.com/in/mithul-raaj-772ba623b/">Mithul Raaj</a>, <a href="https://www.linkedin.com/in/rohithcr/">Rohith CR</a></strong><br/>
-  <strong>In collaboration with <a href="https://www.contextual.ai/">Contextual AI</a></strong>
-</p>
+**University of Washington · MS Data Science Capstone Project · March 2026**  
+**Mentor:** [Abhishek Varma](https://www.linkedin.com/in/abhishekvarma2/)  
+**Capstone Team:**
+- [Saikiran Babu Annangi](https://www.linkedin.com/in/annangisaikiranbabu/)
+- [Balaji Boopal](https://www.linkedin.com/in/balajiboopal/)
+- [Sagorika Ghosh](https://www.linkedin.com/in/sagorika-ghosh/)
+- [Mithul Raaj](https://www.linkedin.com/in/mithul-raaj-772ba623b/)
+- [Rohith CR](https://www.linkedin.com/in/rohithcr/)
 
-<p align="center">
-  <em>Search across your document collection.</em>
-</p>
+**In collaboration with [Contextual AI](https://www.contextual.ai/)**
 
-<p align="center">
-  <a href="https://rag-climate-butyqckrqjlyq78yjytjfh.streamlit.app"><img src="https://static.streamlit.io/badges/streamlit_badge_black_white.svg" alt="Try it live" /></a>
+*Query climate and refrigerant documents with natural language. Type or speak your questions; retrieve answers grounded in source documents.*
+
+<p>
+  <a href="https://rag-climate-butyqckrqjlyq78yjytjfh.streamlit.app"><img src="https://static.streamlit.io/badges/streamlit_badge_black_white.svg" alt="Open in Streamlit" /></a>
   <a href="https://www.python.org"><img src="https://img.shields.io/badge/Python-3.9+-3776AB?style=flat-square&logo=python&logoColor=white" alt="Python" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square" alt="MIT" /></a>
+  <img src="https://img.shields.io/badge/Collaborators-5-2ea044?style=flat-square" alt="5 Collaborators" />
 </p>
 
 ---
@@ -27,7 +30,7 @@
 
 <p align="center">
   <strong>Retrieval Augmented Generation for Climate Challenges</strong><br/>
-  <em>Search across your document collection.</em>
+  <em>Query climate and refrigerant documents in natural language. Get answers grounded in source material.</em>
 </p>
 
 This app queries a complex collection of climate and refrigerant documents. Users type a question or speak it; the system retrieves relevant passages from the indexed corpus, reranks them, and returns an answer with source citations. Input is accepted as text or voice. No plugins or additional tooling are required. Once the corpus is loaded, users can run queries as needed.
