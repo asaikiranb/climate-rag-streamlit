@@ -260,7 +260,6 @@ def main():
 
     if st.session_state["just_transcribed"]:
         st.session_state["just_transcribed"] = False
-        query = ""
 
     if query:
         _render_answer(query, retriever, reranker, generator)
