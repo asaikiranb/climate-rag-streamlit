@@ -12,7 +12,7 @@ from pathlib import Path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from benchmark_doc_first import EXPECTED_HEADERS, metric_gate, write_stratified_subset
-from pipeline_utils import normalize_whitespace, stable_chunk_id
+from utils.pipeline_utils import normalize_whitespace, stable_chunk_id
 
 
 class DocFirstPipelineTests(unittest.TestCase):

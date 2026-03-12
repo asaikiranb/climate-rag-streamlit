@@ -3,7 +3,7 @@
 import math
 import re
 from dataclasses import dataclass
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional, Tuple
 
 from eval.normalize import anchor_matches, normalize_filename
 
@@ -124,14 +124,14 @@ def compute_custom_metrics(answer_text: str, results: List[Dict]) -> Dict:
 K_VALUES = (1, 3, 5, 10)
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True)
 class RetrievalScore:
     """Per-row retrieval metrics for either doc or page evaluation."""
 
     scored: bool
-    rr: float | None
-    hits: dict[int, int | None]
-    ndcg: dict[int, float | None]
+    rr: Optional[float]
+    hits: Dict[int, Optional[int]]
+    ndcg: Dict[int, Optional[float]]
 
 
 def _rank_gain(rank: int, gain: int) -> float:
@@ -141,7 +141,7 @@ def _rank_gain(rank: int, gain: int) -> float:
 def _doc_first_match_rank(
     retrievals: list[dict[str, Any]],
     gold_source: str,
-) -> int | None:
+) -> Optional[int]:
     target = normalize_filename(gold_source)
     if not target:
         return None
@@ -185,10 +185,10 @@ def compute_doc_retrieval_scores(
 def _page_best_rank_and_gain(
     retrievals: list[dict[str, Any]],
     gold_source: str,
-    gold_pages: list[int] | None,
+    gold_pages: Optional[List[int]],
     anchor_text: str,
     anchor_threshold: int,
-) -> tuple[int | None, int]:
+) -> Tuple[Optional[int], int]:
     target = normalize_filename(gold_source)
     if not target:
         return None, 0
@@ -197,7 +197,7 @@ def _page_best_rank_and_gain(
     has_pages = bool(gold_pages)
     page_set = set(gold_pages or [])
 
-    best_rank: int | None = None
+    best_rank: Optional[int] = None
     best_gain = 0
 
     for retrieval in retrievals:
@@ -232,7 +232,7 @@ def _page_best_rank_and_gain(
 def compute_page_retrieval_scores(
     retrievals: list[dict[str, Any]],
     gold_source: str,
-    gold_pages: list[int] | None,
+    gold_pages: Optional[List[int]],
     anchor_text: str,
     anchor_threshold: int,
     k_values: tuple[int, ...] = K_VALUES,

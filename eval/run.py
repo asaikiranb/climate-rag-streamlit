@@ -98,8 +98,8 @@ class OfflineGroqEvalRunner:
         self.qdrant_collection = qdrant_collection
 
         if self.profile == "upgraded":
-            from rerank_v2 import TwoStageCalibratedReranker
-            from retrieve_v2 import HybridRetrieverV2
+            from core.rerank_v2 import TwoStageCalibratedReranker
+            from core.retrieve_v2 import HybridRetrieverV2
 
             retriever_kwargs: dict[str, Any] = {
                 "backend": backend,
@@ -122,8 +122,8 @@ class OfflineGroqEvalRunner:
                 reranker_kwargs["stage1_pool_size"] = int(stage1_pool_size)
             self.reranker = TwoStageCalibratedReranker(**reranker_kwargs)
         else:
-            from rerank import CrossEncoderReranker
-            from retrieve import HybridRetriever
+            from core.rerank import CrossEncoderReranker
+            from core.retrieve import HybridRetriever
 
             self.retriever = HybridRetriever()
             self.reranker = CrossEncoderReranker()
@@ -133,13 +133,13 @@ class OfflineGroqEvalRunner:
         self.groq_available = False
 
         try:
-            from llm import GenerationClient
+            from core.llm import GenerationClient
 
             self.generator = GenerationClient()
             self.groq_available = bool(self.generator.groq)
             if self.groq_available and self.profile == "baseline":
                 try:
-                    from query import expand_query as expand_query_fn
+                    from core.query import expand_query as expand_query_fn
 
                     self.expand_query_fn = expand_query_fn
                 except Exception:
