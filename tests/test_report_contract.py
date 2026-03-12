@@ -77,7 +77,6 @@ class ReportContractTests(unittest.TestCase):
         self.assertNotIn("generation_metrics", summary)
         self.assertNotIn("citation_metrics", summary)
 
-    @unittest.skip("format_email does not yet support retrieval-only mode (hiding gen/citation, showing expansion)")
     def test_email_hides_generation_and_citation_in_retrieval_only_mode(self) -> None:
         retrieval_only_summary = {
             "timestamp": "2026-03-06T07:47:11.344399",

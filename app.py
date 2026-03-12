@@ -1,23 +1,22 @@
-"""Streamlit app - pre-refactor structure: single file, Qdrant only."""
 import streamlit as st
 import streamlit.components.v1 as components
 from pathlib import Path
 
-from core.retrieve_v2 import HybridRetrieverV2
-from core.rerank_v2 import TwoStageCalibratedReranker
-from core.llm import GenerationClient
-from ui.html_renderer import build_answer_html
-from core.query import expand_query
+from retrieve_v2 import HybridRetrieverV2
+from rerank_v2 import TwoStageCalibratedReranker
+from llm import GenerationClient
+from html_renderer import build_answer_html
+from query import expand_query
 from config import (
     EXAMPLE_QUERIES,
     INGEST_EMBEDDING_MODEL,
     QDRANT_COLLECTION,
     QDRANT_PATH,
     SPARSE_MODE,
+    VECTOR_DB_BACKEND,
 )
 try:
-    from utils import voice as voice_mod
-    voice = voice_mod
+    import voice
 except Exception:
     voice = None
 
@@ -73,14 +72,13 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 
-def _has_qdrant_collection(path: str, collection: str) -> bool:
-    storage = Path(path) / "collection" / collection / "storage.sqlite"
-    return storage.exists()
-
-
 @st.cache_resource
 def get_retriever():
     sparse_mode = SPARSE_MODE if SPARSE_MODE in {"none", "bm42", "splade"} else "bm42"
+
+    def _has_qdrant_collection(path: str, collection: str) -> bool:
+        storage = Path(path) / "collection" / collection / "storage.sqlite"
+        return storage.exists()
 
     candidates = [
         (QDRANT_PATH, QDRANT_COLLECTION),
@@ -135,29 +133,23 @@ def _init_voice_state():
 
 def _render_voice_recorder(whisper_model):
     """Render the mic button and audio recorder."""
-    url_query = st.query_params.get("q", "")
-    query_from_voice = None
-    if url_query:
-        st.session_state["query_input"] = url_query
-        st.query_params.clear()
-    elif st.session_state["voice_query"]:
-        query_from_voice = st.session_state["voice_query"]
-        st.session_state["query_input"] = query_from_voice
-        st.session_state["voice_query"] = ""
+    col_input, col_mic = st.columns([11, 1])
 
-    col_form, col_mic = st.columns([11, 1])
-    with col_form:
-        with st.form("query_form", clear_on_submit=False):
-            query = st.text_input(
-                "Ask a question",
-                placeholder="e.g. What is India's cooling action plan?",
-                label_visibility="collapsed",
-                key="query_input",
-            )
-            form_submitted = st.form_submit_button("Search")
+    with col_input:
+        url_query = st.query_params.get("q", "")
+        if url_query:
+            st.session_state["query_input"] = url_query
+            st.query_params.clear()
+        elif st.session_state["voice_query"]:
+            st.session_state["query_input"] = st.session_state["voice_query"]
+            st.session_state["voice_query"] = ""
 
-    if query_from_voice is not None and not form_submitted:
-        return query_from_voice
+        query = st.text_input(
+            "Ask a question",
+            placeholder="e.g. What is India's cooling action plan?",
+            label_visibility="collapsed",
+            key="query_input",
+        )
 
     with col_mic:
         mic_clicked = st.button(
@@ -204,6 +196,7 @@ def _render_voice_recorder(whisper_model):
 
 def _retrieve(query: str, retriever: HybridRetrieverV2, reranker: TwoStageCalibratedReranker, generator: GenerationClient) -> list:
     """Expansion, search, and reranking pipeline."""
+    # Use generator's groq client for expansion (or just use dedicated client)
     queries = expand_query(query, generator.groq)
 
     seen_ids = set()
@@ -230,6 +223,7 @@ def _render_answer(query: str, retriever: HybridRetrieverV2, reranker: TwoStageC
             st.info("No relevant documents found. Try a different query.")
             st.stop()
 
+        # Selection of top 5 for generation
         top_results = results[:5]
         answer = generator.generate(query, top_results)
 
@@ -266,6 +260,7 @@ def main():
 
     if st.session_state["just_transcribed"]:
         st.session_state["just_transcribed"] = False
+        query = ""
 
     if query:
         _render_answer(query, retriever, reranker, generator)

@@ -15,7 +15,7 @@ from config import (
     RERANK_STAGE1_MODEL,
     RERANK_STAGE1_POOL_SIZE,
 )
-from utils.hf_local import resolve_local_snapshot
+from hf_local import resolve_local_snapshot
 
 
 def _calibrate(scores: list[float]) -> list[float]:

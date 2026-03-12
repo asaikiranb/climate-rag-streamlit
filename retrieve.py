@@ -45,7 +45,7 @@ class HybridRetriever:
         if xdg_cache:
             candidates.append(Path(xdg_cache) / "huggingface")
         # Repo-local cache fallback used by this project.
-        candidates.append(Path(__file__).resolve().parent.parent / ".runtime-cache" / "xdg" / "huggingface")
+        candidates.append(Path(__file__).resolve().parent / ".runtime-cache" / "xdg" / "huggingface")
 
         for root in candidates:
             try:
