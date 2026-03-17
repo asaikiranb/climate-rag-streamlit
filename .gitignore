@@ -52,8 +52,11 @@ node_modules/
 
 # Local runtime/model caches
 .runtime-cache/
+.runtime_cache/
 .paddle-home/
 .paddleocr/
+yolov8n.pt
+qdrant_db_ci/.lock
 
 # Data files — PDFs not needed at runtime, chroma_db has the index
 data/
