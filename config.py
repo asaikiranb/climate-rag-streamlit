@@ -1,9 +1,20 @@
 """Global configuration and configuration-derived constants."""
 
 import os
+from pathlib import Path
 from dotenv import load_dotenv
 
-load_dotenv()
+ROOT_DIR = Path(__file__).resolve().parent
+for dotenv_candidate in (
+    ROOT_DIR / ".env",
+    ROOT_DIR / ".env.local",
+    ROOT_DIR.parent / ".env",
+    ROOT_DIR.parent / ".env.local",
+    ROOT_DIR.parent.parent / ".env",
+    ROOT_DIR.parent.parent / ".env.local",
+):
+    if dotenv_candidate.exists():
+        load_dotenv(dotenv_path=dotenv_candidate, override=False)
 
 
 def _env_bool(name: str, default: bool) -> bool:
@@ -67,6 +78,14 @@ METADATA_TITLE_WEIGHT = float(os.getenv("METADATA_TITLE_WEIGHT", "0.5"))
 METADATA_SECTION_WEIGHT = float(os.getenv("METADATA_SECTION_WEIGHT", "0.35"))
 METADATA_FILENAME_WEIGHT = float(os.getenv("METADATA_FILENAME_WEIGHT", "0.15"))
 EARLY_PAGE_PRIOR = float(os.getenv("EARLY_PAGE_PRIOR", "0.05"))
+
+# Streamlit multimodal/runtime controls
+ENABLE_IMAGE_PIPELINE = _env_bool("ENABLE_IMAGE_PIPELINE", True)
+ENABLE_YOLO_PIPELINE = _env_bool("ENABLE_YOLO_PIPELINE", True)
+
+# Web fallback controls (for dynamic/time-sensitive queries)
+WEB_FALLBACK_ENABLED = _env_bool("WEB_FALLBACK_ENABLED", True)
+WEB_FALLBACK_MAX_SNIPPETS = int(os.getenv("WEB_FALLBACK_MAX_SNIPPETS", "4"))
 
 # V2 reranker controls
 RERANK_STAGE1_MODEL = os.getenv("RERANK_STAGE1_MODEL", "cross-encoder/ms-marco-MiniLM-L-12-v2")
