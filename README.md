@@ -25,7 +25,7 @@
 ## The App
 
 <p align="center">
-  <img src="docs/images/app-ui.png" alt="Retrieval Augmented Generation for Climate Challenges" width="800" />
+  <img width="1920" height="1080" alt="System_Arch" src="https://github.com/user-attachments/assets/0a70a9fc-a883-4dca-bd55-77c464284fd5" />
 </p>
 
 <p align="center">
@@ -101,14 +101,14 @@ streamlit run app.py
 
 No setup is required for the hosted demo. Use the link below to run the app in your browser.
 
-**[Open RAG Climate](https://rag-climate-butyqckrqjlyq78yjytjfh.streamlit.app)**
+**[Open RAG Climate](https://rag-climate.streamlit.app/)**
 
 ---
 
 ## Voice Input
 
 <p align="center">
-  <img src="docs/images/app-ui.png" alt="Voice input with Mic button" width="600" />
+  <img width="744" height="596" alt="image" src="https://github.com/user-attachments/assets/8fc79a0b-f2b5-47cf-a682-cc0173925226" />
 </p>
 
 Use the **Mic** button next to the search bar. Speak in English or Indian languages; the app transcribes your speech and runs the search automatically. No need to press Enter after speaking.
