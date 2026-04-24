@@ -1,21 +1,21 @@
 # GitHub (private) + Streamlit Community Cloud
 
-## 1. Create a private GitHub repository
+Primary private repo for this pilot: **https://github.com/asaikiranb/climate-rag-streamlit** (`origin`).
 
-From this directory (`RAG-climate`), after the first commit exists:
+The original **https://github.com/asaikiranb/RAG-climate** repo is kept as **`upstream`** (public community repo) without the pilot-only deploy bundle on `main`.
+
+## 1. Clone / remotes
 
 ```bash
-cd "/path/to/RAG-climate"
-gh auth login
-gh repo create YOUR-ORG-OR-USER/rag-climate --private --source=. --remote=origin --push
+git clone https://github.com/asaikiranb/climate-rag-streamlit.git
+# optional: git remote add upstream https://github.com/asaikiranb/RAG-climate.git
 ```
 
-If the repo already exists on GitHub:
+To create another private repo from a clean copy:
 
 ```bash
-git remote add origin https://github.com/YOUR-ORG-OR-USER/rag-climate.git
-git branch -M main
-git push -u origin main
+gh auth login
+gh repo create YOUR-ORG-OR-USER/NEW-REPO-NAME --private --source=. --remote=origin --push
 ```
 
 ## 2. Streamlit Community Cloud
