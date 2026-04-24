@@ -149,7 +149,7 @@ def minmax(values: list[float]) -> list[float]:
     return [(value - low) / (high - low) for value in cleaned]
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True)
 class Candidate:
     candidate_id: str
     document: str

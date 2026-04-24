@@ -1,0 +1,4 @@
+# System packages for Streamlit Community Cloud (Debian-based)
+tesseract-ocr
+ffmpeg
+libgl1

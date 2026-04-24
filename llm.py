@@ -1,3 +1,4 @@
+from __future__ import annotations
 """Generation client using Groq with local Ollama fallback."""
 
 import os
@@ -83,13 +84,13 @@ class GenerationClient:
             )
         return "\n---\n".join(parts)
 
-    def _chat_completion(self, prompt: str, use_fallback: bool = True) -> str:
+    def _chat_completion(self, prompt: str, system_prompt: str = SYSTEM_MESSAGE, use_fallback: bool = True) -> str:
         """Run generation via Groq first, then Ollama fallback if enabled."""
         if self.groq:
             try:
                 res = self.groq.chat.completions.create(
                     messages=[
-                        {"role": "system", "content": SYSTEM_MESSAGE},
+                        {"role": "system", "content": system_prompt},
                         {"role": "user", "content": prompt},
                     ],
                     model=LLM_MODEL,
@@ -103,7 +104,7 @@ class GenerationClient:
                 if not use_fallback:
                     return f"Error: {e}"
 
-        return self._generate_ollama(prompt)
+        return self._generate_ollama(prompt, system_prompt=system_prompt)
 
     def _heuristic_reconstruct_query(
         self,
@@ -305,14 +306,15 @@ class GenerationClient:
         use_fallback: bool = True,
         extra_context: str = "",
         allow_web_fallback: bool = True,
+        system_prompt: str = SYSTEM_PROMPT,
     ) -> dict:
         """Generate answer with optional web augmentation and metadata for observability."""
         context = self._build_context(hits)
         if extra_context.strip():
             context = f"{context}\n\n[Input Signals]\n{extra_context.strip()}"
 
-        prompt = SYSTEM_PROMPT.format(context=context, query=query)
-        answer = self._chat_completion(prompt, use_fallback=use_fallback)
+        prompt = system_prompt.format(context=context, query=query)
+        answer = self._chat_completion(prompt, system_prompt=SYSTEM_MESSAGE, use_fallback=use_fallback)
 
         web_snippets: list[dict] = []
         web_used = False
@@ -328,7 +330,7 @@ class GenerationClient:
                     web_context=web_context,
                     query=query,
                 )
-                answer = self._chat_completion(web_prompt, use_fallback=use_fallback)
+                answer = self._chat_completion(web_prompt, system_prompt=SYSTEM_MESSAGE, use_fallback=use_fallback)
                 web_used = True
 
         return {
@@ -337,12 +339,12 @@ class GenerationClient:
             "web_snippets": web_snippets,
         }
 
-    def generate(self, query: str, hits: list, use_fallback: bool = True) -> str:
+    def generate(self, query: str, hits: list, system_prompt: str = SYSTEM_PROMPT, use_fallback: bool = True) -> str:
         """Generate a safety-compliant answer from provided sources."""
-        result = self.generate_with_metadata(query, hits, use_fallback=use_fallback)
+        result = self.generate_with_metadata(query, hits, use_fallback=use_fallback, system_prompt=system_prompt)
         return result["answer"]
 
-    def _generate_ollama(self, prompt: str) -> str:
+    def _generate_ollama(self, prompt: str, system_prompt: str = SYSTEM_MESSAGE) -> str:
         """Fallback to local Ollama if Groq fails or is unavailable."""
         model = os.getenv("OLLAMA_MODEL", "qwen2.5:1.5b")
         try:
@@ -351,7 +353,7 @@ class GenerationClient:
                 json={
                     "model": model,
                     "prompt": prompt,
-                    "system": SYSTEM_MESSAGE,
+                    "system": system_prompt,
                     "stream": False,
                     "options": {"temperature": LLM_TEMPERATURE}
                 },

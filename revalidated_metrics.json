@@ -1,0 +1,31 @@
+{
+  "retrieval_metrics": {
+    "recall@1": 0.722,
+    "recall@3": 0.897,
+    "recall@5": 0.937,
+    "mrr@10": 0.812,
+    "page_recall@5": 0.492
+  },
+  "standard_avg_latency_ms": 11478,
+  "prefpo_avg_latency_ms": 9505,
+  "standard": {
+    "avg_generate_ms": 7839,
+    "citation_validity": 0.567,
+    "citation_coverage": 0.588,
+    "source_grounding": 0.72,
+    "faithfulness": 0.732,
+    "relevance": 0.677,
+    "completeness": 0.688,
+    "overall": 0.699
+  },
+  "prefpo": {
+    "avg_generate_ms": 5867,
+    "citation_validity": 0.775,
+    "citation_coverage": 0.795,
+    "source_grounding": 0.799,
+    "faithfulness": 0.796,
+    "relevance": 0.765,
+    "completeness": 0.86,
+    "overall": 0.807
+  }
+}

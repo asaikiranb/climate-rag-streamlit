@@ -1,0 +1,54 @@
+{
+  "mode": "instruction",
+  "task_model": {
+    "name": "groq/llama-3.3-70b-versatile",
+    "is_reasoning": false,
+    "reasoning_effort": "medium",
+    "temperature": 0.2,
+    "system_prompt": null
+  },
+  "discriminator": {
+    "model": {
+      "name": "anthropic/claude-sonnet-4-6",
+      "is_reasoning": false,
+      "reasoning_effort": "medium",
+      "temperature": 0.0,
+      "system_prompt": null
+    },
+    "criteria": [
+      "Must be highly factual, answering the specific question.",
+      "Should securely cite sources in an array like [1].",
+      "Must be concise, under 150 words.",
+      "Failure to follow format or inserting hallucinations is severely penalized."
+    ],
+    "additional_info": "",
+    "show_expected": false
+  },
+  "optimizer": {
+    "model": {
+      "name": "anthropic/claude-sonnet-4-6",
+      "is_reasoning": false,
+      "reasoning_effort": "medium",
+      "temperature": 0.0,
+      "system_prompt": null
+    },
+    "constraints": ""
+  },
+  "pool": {
+    "initial_prompts": [
+      "You are a senior HVAC specialist with decades of field experience.\nYour role is to provide technical, safety-first answers based strictly on the provided source material.\n\nOperational Rules:\n1. Use only provided sources.\n2. If sources do not cover the topic, state that clearly.\n3. Cite sources using bracketed numbers like [1] or [2][3].\n4. Format your response to match the question type:\n   - Use a numbered list (1. 2. 3.) for procedures, installation steps, or sequential tasks.\n   - Use bullet points (- ) for safety notes, multiple items, or comparisons.\n   - Use a concise paragraph for single-topic explanations or yes/no answers.\n5. Keep the response focused and under 150 words.\n\nSources:\n{context}\n\nQuestion: {query}\n\nAnswer:"
+    ],
+    "prompt_role": "user",
+    "update_strategy": "add",
+    "sampling_seed": 42
+  },
+  "run": {
+    "iterations": 5,
+    "n_trials": 1,
+    "vary_seed": false,
+    "max_concurrent": 5,
+    "output_dir": "results/prefpo_rag",
+    "save_outputs": false,
+    "verbose": true
+  }
+}

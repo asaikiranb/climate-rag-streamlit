@@ -1,3 +1,4 @@
+from __future__ import annotations
 import streamlit as st
 import streamlit.components.v1 as components
 import os
@@ -7,8 +8,10 @@ from pathlib import Path
 import io
 import re
 import time
+import json
 from typing import Any
 
+import subprocess
 import numpy as np
 from PIL import Image, ImageDraw, ImageOps, ImageFilter
 
@@ -27,7 +30,28 @@ from config import (
     ENABLE_IMAGE_PIPELINE,
     ENABLE_YOLO_PIPELINE,
     WEB_FALLBACK_ENABLED,
+    SYSTEM_PROMPT,
 )
+
+try:
+    with open("optimized_prompt.txt", "r") as f:
+        PREFPO_OPTIMIZED_PROMPT = f.read().strip()
+except FileNotFoundError:
+    PREFPO_OPTIMIZED_PROMPT = """You are an elite, highly precise HVAC technical assistant.
+Your absolute priority is safety and strict adherence to the provided source text. 
+
+CRITICAL CONSTRAINTS:
+1. Grounding: Answer strictly and entirely based on the provided local corpus snippets. 
+2. Citation: Every fact must be attributed using bracketed numbers mapping to the sources, e.g. [1][3].
+3. Format: Keep the output completely technical, void of fluff, under 150 words.
+4. If multiple modes or parameters are asked, use a bulleted list. 
+
+Sources provided:
+{context}
+
+Question: {query}
+
+Provide your grounded answer below:"""
 
 RUNTIME_CACHE_ROOT = Path(".runtime-cache").resolve()
 PADDLE_HOME_DIR = RUNTIME_CACHE_ROOT / "paddle"
@@ -73,7 +97,7 @@ except Exception:
 
 st.set_page_config(
     page_title="RAG for Climate Challenges",
-    layout="centered",
+    layout="wide",
     initial_sidebar_state="collapsed"
 )
 
@@ -84,11 +108,12 @@ st.markdown("""
     [data-testid="collapsedControl"] { display: none; }
     .stApp { background-color: #ffffff; }
     .block-container {
-        max-width: 720px;
-        padding-top: 3rem;
+        padding-top: 2rem;
         padding-bottom: 2rem;
+        padding-left: 2rem;
+        padding-right: 2rem;
     }
-    h1 { font-weight: 500; font-size: 1.6rem; color: #111; letter-spacing: -0.02em; }
+    h1 { font-weight: 500; font-size: 1.5rem; color: #111; letter-spacing: -0.02em; }
     .stTextInput > div > div > input {
         border-radius: 8px;
         border: 1px solid #ddd;
@@ -123,6 +148,31 @@ st.markdown("""
         font-size: 12px;
         color: #666;
         margin-top: -4px;
+    }
+    .title-left { color: #1f77b4; font-weight: 500; font-size: 1.2rem;}
+    .title-right { color: #d62728; font-weight: 500; font-size: 1.2rem;}
+    .eval-hero {
+        border: 1px solid #d9e8ff;
+        background: linear-gradient(135deg, #f7fbff 0%, #eef5ff 100%);
+        border-radius: 14px;
+        padding: 14px 16px;
+        margin: 8px 0 16px 0;
+    }
+    .eval-hero h4 {
+        margin: 0 0 6px 0;
+        color: #0f2e66;
+        font-size: 1.1rem;
+        font-weight: 600;
+    }
+    .eval-hero p {
+        margin: 0;
+        color: #38507f;
+        font-size: 0.93rem;
+    }
+    .eval-section-title {
+        font-weight: 600;
+        color: #1b2f55;
+        margin: 8px 0 4px 0;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -1380,46 +1430,656 @@ def _render_answer(
 
         # Selection of top 5 for generation
         top_results = results[:5]
-        generate_started = time.perf_counter()
         extra_input_signals = ""
         if image_artifacts and image_artifacts.get("available"):
             fields = image_artifacts.get("fields") or {}
             ocr_text = str(image_artifacts.get("ocr_text") or "")[:1000]
             extra_input_signals = f"OCR fields: {fields}\nOCR text: {ocr_text}"
 
-        generation_artifacts = generator.generate_with_metadata(
+        std_gen_start = time.perf_counter()
+        generation_artifacts_std = generator.generate_with_metadata(
             effective_query,
             top_results,
             extra_context=extra_input_signals,
             allow_web_fallback=WEB_FALLBACK_ENABLED,
         )
-        answer = generation_artifacts.get("answer", "")
-        _record_stage(
-            monitor,
-            "generate_answer",
-            generate_started,
-            status="ok",
-            used_top_k=len(top_results),
-            web_used=generation_artifacts.get("web_used", False),
-            web_snippet_count=len(generation_artifacts.get("web_snippets", []) or []),
-            answer_chars=len(answer or ""),
+        std_gen_ms = round((time.perf_counter() - std_gen_start) * 1000.0, 2)
+        answer = generation_artifacts_std.get("answer", "")
+
+        prefpo_gen_start = time.perf_counter()
+        generation_artifacts_prefpo = generator.generate_with_metadata(
+            effective_query,
+            top_results,
+            extra_context=extra_input_signals,
+            allow_web_fallback=WEB_FALLBACK_ENABLED,
+            system_prompt=PREFPO_OPTIMIZED_PROMPT,
+        )
+        prefpo_gen_ms = round((time.perf_counter() - prefpo_gen_start) * 1000.0, 2)
+        answer_prefpo = generation_artifacts_prefpo.get("answer", "")
+
+        retrieval_ms = round((time.perf_counter() - total_started) * 1000.0, 2) - std_gen_ms - prefpo_gen_ms
+
+    # Build per-side monitors: shared retrieval stages + separate generation stage
+    base_stages = list(monitor["stages"])
+    monitor_std: dict[str, Any] = {
+        **monitor,
+        "stages": base_stages + [{
+            "stage": "generate_answer",
+            "duration_ms": std_gen_ms,
+            "status": "ok",
+            "used_top_k": len(top_results),
+            "web_used": generation_artifacts_std.get("web_used", False),
+            "web_snippet_count": len(generation_artifacts_std.get("web_snippets", []) or []),
+            "answer_chars": len(answer or ""),
+        }],
+        "total_latency_ms": retrieval_ms + std_gen_ms,
+    }
+    monitor_prefpo: dict[str, Any] = {
+        **monitor,
+        "stages": base_stages + [{
+            "stage": "generate_answer",
+            "duration_ms": prefpo_gen_ms,
+            "status": "ok",
+            "used_top_k": len(top_results),
+            "web_used": generation_artifacts_prefpo.get("web_used", False),
+            "web_snippet_count": len(generation_artifacts_prefpo.get("web_snippets", []) or []),
+            "answer_chars": len(answer_prefpo or ""),
+        }],
+        "total_latency_ms": retrieval_ms + prefpo_gen_ms,
+    }
+    st.session_state["last_monitor"] = monitor_std
+
+    # ------------------ Side-by-Side Response Interface ------------------
+    col_std, col_prefpo = st.columns(2, gap="medium")
+
+    with col_std:
+        st.markdown("<p class='title-left'>Standard RAG (Default Prompt)</p>", unsafe_allow_html=True)
+        with st.expander("Prompt template (sent as user message — {context} and {query} filled at runtime)", expanded=False):
+            st.code(SYSTEM_PROMPT, language=None)
+        answer_html_std = build_answer_html(answer, top_results)
+        answer_lines_std = answer.count("\n") + 1
+        estimated_height_std = 350 + (answer_lines_std * 22) + (len(top_results) * 55)
+        components.html(answer_html_std, height=min(max(estimated_height_std, 450), 1800), scrolling=True)
+        _render_monitoring_panel(
+            monitor_std,
+            image_artifacts,
+            yolo_artifacts,
+            generation_artifacts_std,
+            image_bytes=image_bytes,
         )
 
-    answer_html = build_answer_html(answer, top_results)
-    answer_lines = answer.count("\n") + 1
-    estimated_height = 350 + (answer_lines * 22) + (len(top_results) * 55)
-    estimated_height = min(max(estimated_height, 450), 1800)
-    components.html(answer_html, height=estimated_height, scrolling=True)
+    with col_prefpo:
+        st.markdown("<p class='title-right'>PrefPO RAG (Optimized Prompt)</p>", unsafe_allow_html=True)
+        with st.expander("Prompt template (sent as user message — {context} and {query} filled at runtime)", expanded=False):
+            st.code(PREFPO_OPTIMIZED_PROMPT, language=None)
+        answer_html_prefpo = build_answer_html(answer_prefpo, top_results)
+        answer_lines_prefpo = answer_prefpo.count("\n") + 1
+        estimated_height_prefpo = 350 + (answer_lines_prefpo * 22) + (len(top_results) * 55)
+        components.html(answer_html_prefpo, height=min(max(estimated_height_prefpo, 450), 1800), scrolling=True)
+        _render_monitoring_panel(
+            monitor_prefpo,
+            image_artifacts,
+            yolo_artifacts,
+            generation_artifacts_prefpo,
+            image_bytes=image_bytes,
+        )
 
-    monitor["total_latency_ms"] = round((time.perf_counter() - total_started) * 1000.0, 2)
-    st.session_state["last_monitor"] = monitor
-    _render_monitoring_panel(
-        monitor,
-        image_artifacts,
-        yolo_artifacts,
-        generation_artifacts,
-        image_bytes=image_bytes,
+_EVAL_PROGRESS_FILE = Path("eval_progress.json")
+_EVAL_RESULTS_FILE = Path("evaluation_results.json")
+_REVALIDATED_METRICS_FILE = Path("revalidated_metrics.json")
+
+
+def _merge_revalidated_eval_summary(metrics: dict) -> tuple[dict, bool]:
+    """If ``revalidated_metrics.json`` exists, merge its aggregates into *metrics* for dashboard tables."""
+    if not _REVALIDATED_METRICS_FILE.exists():
+        return metrics, False
+    try:
+        patch = json.loads(_REVALIDATED_METRICS_FILE.read_text())
+    except (json.JSONDecodeError, OSError):
+        return metrics, False
+    merged = deepcopy(metrics)
+    rm = patch.get("retrieval_metrics")
+    if isinstance(rm, dict):
+        merged["retrieval_metrics"] = {**(merged.get("retrieval_metrics") or {}), **rm}
+    for key in ("standard_avg_latency_ms", "prefpo_avg_latency_ms"):
+        if key in patch:
+            merged[key] = patch[key]
+    for side in ("standard", "prefpo"):
+        block = patch.get(side)
+        if isinstance(block, dict):
+            merged[side] = {**(merged.get(side) or {}), **block}
+    return merged, True
+_eval_thread_lock   = __import__("threading").Lock()
+
+
+def _run_bg_eval_thread(retriever: Any, reranker: Any) -> None:
+    """
+    Thread-safe eval runner — no st.* calls.
+    Writes eval_progress.json after every question and evaluation_results.json at the end.
+    """
+    import threading
+    from eval.loader import load_golden_csv
+    from eval.metrics import (
+        citation_coverage, citation_validity, source_grounding,
+        compute_doc_retrieval_scores, compute_page_retrieval_scores,
     )
+    from eval.normalize import normalize_retrievals
+
+    def _build_ctx(hits: list) -> str:
+        parts = []
+        for i, h in enumerate(hits, 1):
+            m = h["metadata"]
+            parts.append(f"[Source {i}] (Document: {m['filename']}, Page: {m['page_number']})\n{h['document']}\n")
+        return "\n---\n".join(parts)
+
+    def _gen_metrics(answer: str, hits: list) -> dict:
+        top5 = hits[:5]
+        return {
+            "citation_validity": round(citation_validity(answer, len(top5))["score"], 3),
+            "citation_coverage": round(citation_coverage(answer)["score"], 3),
+            "source_grounding":  round(source_grounding(answer, top5)["score"], 3),
+        }
+
+    def _avg(vals: list) -> float:
+        v = [x for x in vals if x is not None]
+        return round(sum(v) / len(v), 4) if v else 0.0
+
+    try:
+        rows = load_golden_csv("eval/golden.csv")
+        total = len(rows)
+        results: list[dict] = []
+
+        for i, row in enumerate(rows):
+            _EVAL_PROGRESS_FILE.write_text(json.dumps({
+                "running": True, "done": i, "total": total,
+                "current": row.question[:80],
+            }))
+
+            t_ret = time.perf_counter()
+            candidates = retriever.search(row.question, top_k=120)
+            reranked   = reranker.rerank(row.question, candidates)
+            ret_ms     = (time.perf_counter() - t_ret) * 1000.0
+            top5       = reranked[:5]
+            normalized = normalize_retrievals(reranked, 10)
+
+            doc_scores  = compute_doc_retrieval_scores(normalized, row.gold_sources)
+            page_scores = compute_page_retrieval_scores(
+                retrievals=normalized, gold_source=row.gold_sources,
+                gold_pages=row.gold_pages, anchor_text=row.anchor_text,
+                anchor_threshold=80,
+            )
+
+            ctx = _build_ctx(top5)
+            std_answer, std_ms = _ollama_generate_eval(SYSTEM_PROMPT.format(context=ctx, query=row.question))
+            po_answer,  po_ms  = _ollama_generate_eval(PREFPO_OPTIMIZED_PROMPT.format(context=ctx, query=row.question))
+
+            results.append({
+                "query": row.question, "difficulty": row.difficulty,
+                "gold_source": row.gold_sources,
+                "doc_hit@1":  doc_scores.hits.get(1) or 0,
+                "doc_hit@3":  doc_scores.hits.get(3) or 0,
+                "doc_hit@5":  doc_scores.hits.get(5) or 0,
+                "doc_rr":     doc_scores.rr or 0.0,
+                "page_hit@5": page_scores.hits.get(5) or 0,
+                "retrieval_ms": round(ret_ms, 1),
+                "standard": {"answer": std_answer, "latency_ms": round(ret_ms + std_ms, 1),
+                             "generate_ms": round(std_ms, 1), **_gen_metrics(std_answer, top5)},
+                "prefpo":   {"answer": po_answer,  "latency_ms": round(ret_ms + po_ms, 1),
+                             "generate_ms": round(po_ms, 1),  **_gen_metrics(po_answer, top5)},
+            })
+
+        def _gagg(key: str, side: str) -> float:
+            return _avg([r[side][key] for r in results if key in r.get(side, {})])
+
+        scored = [r for r in results if r.get("doc_rr") is not None]
+        output = {
+            "total_questions": len(results),
+            "model": "llama3.2:latest",
+            "retrieval_metrics": {
+                "recall@1":      _avg([r["doc_hit@1"]  for r in scored]),
+                "recall@3":      _avg([r["doc_hit@3"]  for r in scored]),
+                "recall@5":      _avg([r["doc_hit@5"]  for r in scored]),
+                "mrr@10":        _avg([r["doc_rr"]      for r in scored]),
+                "page_recall@5": _avg([r["page_hit@5"] for r in scored]),
+            },
+            "standard_avg_latency_ms": _avg([r["standard"]["latency_ms"] for r in results]),
+            "prefpo_avg_latency_ms":   _avg([r["prefpo"]["latency_ms"]   for r in results]),
+            "standard": {
+                "avg_generate_ms":   _avg([r["standard"]["generate_ms"]   for r in results]),
+                "citation_validity": _gagg("citation_validity", "standard"),
+                "citation_coverage": _gagg("citation_coverage", "standard"),
+                "source_grounding":  _gagg("source_grounding",  "standard"),
+            },
+            "prefpo": {
+                "avg_generate_ms":   _avg([r["prefpo"]["generate_ms"]   for r in results]),
+                "citation_validity": _gagg("citation_validity", "prefpo"),
+                "citation_coverage": _gagg("citation_coverage", "prefpo"),
+                "source_grounding":  _gagg("source_grounding",  "prefpo"),
+            },
+            "samples": results,
+        }
+        _EVAL_RESULTS_FILE.write_text(json.dumps(output, indent=2))
+
+    except Exception as exc:
+        import traceback
+        _EVAL_PROGRESS_FILE.write_text(json.dumps({
+            "running": False, "error": str(exc), "traceback": traceback.format_exc()
+        }))
+        return
+
+    # Signal completion
+    _EVAL_PROGRESS_FILE.write_text(json.dumps({"running": False, "done": total, "total": total}))
+
+
+def _maybe_start_eval_thread() -> None:
+    """Start background eval if not already running and results are missing/stale."""
+    import threading
+
+    if st.session_state.get("_eval_thread_started"):
+        return
+    if _EVAL_PROGRESS_FILE.exists():
+        try:
+            prog = json.loads(_EVAL_PROGRESS_FILE.read_text())
+            if prog.get("running"):
+                return   # already in progress
+        except Exception:
+            pass
+
+    # Start only if results are missing
+    if _EVAL_RESULTS_FILE.exists():
+        return
+
+    retriever = get_retriever()
+    reranker  = get_reranker_model()
+
+    t = threading.Thread(
+        target=_run_bg_eval_thread,
+        args=(retriever, reranker),
+        daemon=True,
+        name="bg-eval-126q",
+    )
+    t.start()
+    st.session_state["_eval_thread_started"] = True
+
+
+def _ollama_generate_eval(prompt: str, model: str = "llama3.2:latest") -> tuple[str, float]:
+    """Generate one answer via Ollama and return (text, latency_ms)."""
+    import requests as _req
+    t0 = time.perf_counter()
+    try:
+        resp = _req.post(
+            "http://localhost:11434/api/generate",
+            json={"model": model, "prompt": prompt, "stream": False,
+                  "options": {"temperature": 0.2, "num_predict": 200}},
+            timeout=180,
+        )
+        text = resp.json().get("response", "").strip()
+    except Exception as exc:
+        text = f"[Ollama error: {exc}]"
+    ms = (time.perf_counter() - t0) * 1000.0
+    return text, ms
+
+
+def _run_inline_eval(retriever: "HybridRetrieverV2", reranker: "TwoStageCalibratedReranker") -> dict:
+    """Run dual eval using the app's already-open retriever (no Qdrant lock conflict)."""
+    from eval.loader import load_golden_csv
+    from eval.metrics import (
+        citation_coverage, citation_validity, source_grounding,
+        compute_doc_retrieval_scores, compute_page_retrieval_scores,
+    )
+    from eval.normalize import normalize_retrievals
+
+    rows = load_golden_csv("eval/golden.csv")
+    total = len(rows)
+    results = []
+
+    progress = st.progress(0, text="Starting evaluation…")
+    status   = st.empty()
+
+    def _build_ctx(hits: list) -> str:
+        parts = []
+        for i, h in enumerate(hits, 1):
+            m = h["metadata"]
+            parts.append(f"[Source {i}] (Document: {m['filename']}, Page: {m['page_number']})\n{h['document']}\n")
+        return "\n---\n".join(parts)
+
+    def _gen_metrics(answer: str, hits: list) -> dict:
+        top5 = hits[:5]
+        return {
+            "citation_validity": round(citation_validity(answer, len(top5))["score"], 3),
+            "citation_coverage": round(citation_coverage(answer)["score"], 3),
+            "source_grounding":  round(source_grounding(answer, top5)["score"], 3),
+        }
+
+    for i, row in enumerate(rows):
+        status.text(f"[{i+1}/{total}] {row.question[:80]}")
+        progress.progress((i + 1) / total, text=f"Question {i+1}/{total}")
+
+        t_ret = time.perf_counter()
+        candidates = retriever.search(row.question, top_k=120)
+        reranked   = reranker.rerank(row.question, candidates)
+        ret_ms     = (time.perf_counter() - t_ret) * 1000.0
+        top5       = reranked[:5]
+        normalized = normalize_retrievals(reranked, 10)
+
+        doc_scores  = compute_doc_retrieval_scores(normalized, row.gold_sources)
+        page_scores = compute_page_retrieval_scores(
+            retrievals=normalized, gold_source=row.gold_sources,
+            gold_pages=row.gold_pages, anchor_text=row.anchor_text, anchor_threshold=80,
+        )
+
+        ctx = _build_ctx(top5)
+        std_answer,  std_ms  = _ollama_generate_eval(SYSTEM_PROMPT.format(context=ctx, query=row.question))
+        po_answer,   po_ms   = _ollama_generate_eval(PREFPO_OPTIMIZED_PROMPT.format(context=ctx, query=row.question))
+
+        results.append({
+            "query": row.question, "difficulty": row.difficulty,
+            "gold_source": row.gold_sources,
+            "doc_hit@1":  doc_scores.hits.get(1) or 0,
+            "doc_hit@3":  doc_scores.hits.get(3) or 0,
+            "doc_hit@5":  doc_scores.hits.get(5) or 0,
+            "doc_rr":     doc_scores.rr or 0.0,
+            "page_hit@5": page_scores.hits.get(5) or 0,
+            "retrieval_ms": round(ret_ms, 1),
+            "standard": {"answer": std_answer, "latency_ms": round(ret_ms + std_ms, 1),
+                         "generate_ms": round(std_ms, 1), **_gen_metrics(std_answer, top5)},
+            "prefpo":   {"answer": po_answer,  "latency_ms": round(ret_ms + po_ms, 1),
+                         "generate_ms": round(po_ms, 1),  **_gen_metrics(po_answer, top5)},
+        })
+
+    progress.empty()
+    status.empty()
+
+    def _avg(vals: list) -> float:
+        v = [x for x in vals if x is not None]
+        return round(sum(v) / len(v), 4) if v else 0.0
+
+    scored = [r for r in results if r["doc_rr"] is not None]
+    ret_metrics = {
+        "recall@1":      _avg([r["doc_hit@1"]  for r in scored]),
+        "recall@3":      _avg([r["doc_hit@3"]  for r in scored]),
+        "recall@5":      _avg([r["doc_hit@5"]  for r in scored]),
+        "mrr@10":        _avg([r["doc_rr"]      for r in scored]),
+        "page_recall@5": _avg([r["page_hit@5"] for r in scored]),
+    }
+
+    def _gagg(key: str, side: str) -> float:
+        return _avg([r[side][key] for r in results if key in r.get(side, {})])
+
+    output = {
+        "total_questions": len(results),
+        "model": "llama3.2:latest",
+        "retrieval_metrics": ret_metrics,
+        "standard_avg_latency_ms": _avg([r["standard"]["latency_ms"] for r in results]),
+        "prefpo_avg_latency_ms":   _avg([r["prefpo"]["latency_ms"]   for r in results]),
+        "standard": {
+            "avg_generate_ms":   _avg([r["standard"]["generate_ms"]   for r in results]),
+            "citation_validity": _gagg("citation_validity", "standard"),
+            "citation_coverage": _gagg("citation_coverage", "standard"),
+            "source_grounding":  _gagg("source_grounding",  "standard"),
+        },
+        "prefpo": {
+            "avg_generate_ms":   _avg([r["prefpo"]["generate_ms"]   for r in results]),
+            "citation_validity": _gagg("citation_validity", "prefpo"),
+            "citation_coverage": _gagg("citation_coverage", "prefpo"),
+            "source_grounding":  _gagg("source_grounding",  "prefpo"),
+        },
+        "samples": results,
+    }
+    Path("evaluation_results.json").write_text(json.dumps(output, indent=2))
+    return output
+
+
+def _render_evaluation_dashboard():
+    """Render streamlined AI evaluations comparison dashboard."""
+    st.markdown("---")
+    st.subheader("AI Evaluations")
+
+    # Auto-start background eval if results don't exist yet
+    _maybe_start_eval_thread()
+
+    # ── Live progress display ─────────────────────────────────────────────
+    if _EVAL_PROGRESS_FILE.exists():
+        try:
+            prog = json.loads(_EVAL_PROGRESS_FILE.read_text())
+        except Exception:
+            prog = {}
+        if prog.get("running"):
+            done  = int(prog.get("done", 0))
+            total = int(prog.get("total", 126))
+            curr  = prog.get("current", "")
+            pct   = done / max(total, 1)
+            st.info(f"⏳ Evaluation running… **{done} / {total}** questions complete")
+            st.progress(pct, text=f"Current: {curr}")
+            st.caption("This page will refresh automatically every 30 seconds.")
+            import time as _time
+            _time.sleep(30)
+            st.rerun()
+            return
+        elif prog.get("error"):
+            st.error(f"Evaluation failed: {prog['error']}")
+            with st.expander("Traceback"):
+                st.code(prog.get("traceback", ""))
+            return
+
+    try:
+        with open("evaluation_results.json", "r") as f:
+            metrics = json.load(f)
+
+        metrics, using_revalidated_summary = _merge_revalidated_eval_summary(metrics)
+
+        total_q = metrics.get("total_questions", 0)
+        std_lat  = metrics.get("standard_avg_latency_ms", 0)
+        prefpo_lat = metrics.get("prefpo_avg_latency_ms", 0)
+        samples  = metrics.get("samples", [])
+        std_gen  = metrics.get("standard", {})
+        po_gen   = metrics.get("prefpo", {})
+
+        def _collect_side_stats(side: str) -> dict[str, float]:
+            side_rows = [item.get(side, {}) for item in samples if side in item]
+            latencies = [float(row.get("latency_ms", 0.0)) for row in side_rows if row]
+            generates = [float(row.get("generate_ms", 0.0)) for row in side_rows if row]
+
+            def _avg(values: list[float]) -> float:
+                return float(sum(values) / len(values)) if values else 0.0
+
+            def _pct(values: list[float], q: float) -> float:
+                return float(np.percentile(values, q)) if values else 0.0
+
+            return {
+                "questions": float(len(side_rows)),
+                "avg_latency_ms": _avg(latencies),
+                "p50_latency_ms": _pct(latencies, 50),
+                "p95_latency_ms": _pct(latencies, 95),
+                "avg_generate_ms": _avg(generates),
+                "p50_generate_ms": _pct(generates, 50),
+                "p95_generate_ms": _pct(generates, 95),
+            }
+
+        std_stats = _collect_side_stats("standard")
+        po_stats = _collect_side_stats("prefpo")
+
+        def _pct_improvement(base: float, contender: float, lower_is_better: bool = False) -> float:
+            if base == 0:
+                return 0.0
+            if lower_is_better:
+                return ((base - contender) / base) * 100.0
+            return ((contender - base) / base) * 100.0
+
+        std_prompt_words = len(re.findall(r"\b\w+[\w-]*\b", SYSTEM_PROMPT))
+        prefpo_prompt_words = len(re.findall(r"\b\w+[\w-]*\b", PREFPO_OPTIMIZED_PROMPT))
+
+        comparison_rows = [
+            {
+                "metric": "prompt_length_words",
+                "without_prefpo": std_prompt_words,
+                "with_prefpo": prefpo_prompt_words,
+                "improvement_pct": round(_pct_improvement(float(std_prompt_words), float(prefpo_prompt_words), lower_is_better=True), 2),
+            },
+            {
+                "metric": "avg_latency_ms",
+                "without_prefpo": round(float(std_lat), 2),
+                "with_prefpo": round(float(prefpo_lat), 2),
+                "improvement_pct": round(_pct_improvement(float(std_lat), float(prefpo_lat), lower_is_better=True), 2),
+            },
+            {
+                "metric": "avg_generate_ms",
+                "without_prefpo": round(float(std_gen.get("avg_generate_ms", std_stats.get("avg_generate_ms", 0.0))), 2),
+                "with_prefpo": round(float(po_gen.get("avg_generate_ms", po_stats.get("avg_generate_ms", 0.0))), 2),
+                "improvement_pct": round(
+                    _pct_improvement(
+                        float(std_gen.get("avg_generate_ms", std_stats.get("avg_generate_ms", 0.0))),
+                        float(po_gen.get("avg_generate_ms", po_stats.get("avg_generate_ms", 0.0))),
+                        lower_is_better=True,
+                    ),
+                    2,
+                ),
+            },
+            {
+                "metric": "citation_validity",
+                "without_prefpo": round(float(std_gen.get("citation_validity", 0.0)), 4),
+                "with_prefpo": round(float(po_gen.get("citation_validity", 0.0)), 4),
+                "improvement_pct": round(_pct_improvement(float(std_gen.get("citation_validity", 0.0)), float(po_gen.get("citation_validity", 0.0))), 2),
+            },
+            {
+                "metric": "citation_coverage",
+                "without_prefpo": round(float(std_gen.get("citation_coverage", 0.0)), 4),
+                "with_prefpo": round(float(po_gen.get("citation_coverage", 0.0)), 4),
+                "improvement_pct": round(_pct_improvement(float(std_gen.get("citation_coverage", 0.0)), float(po_gen.get("citation_coverage", 0.0))), 2),
+            },
+            {
+                "metric": "source_grounding",
+                "without_prefpo": round(float(std_gen.get("source_grounding", 0.0)), 4),
+                "with_prefpo": round(float(po_gen.get("source_grounding", 0.0)), 4),
+                "improvement_pct": round(_pct_improvement(float(std_gen.get("source_grounding", 0.0)), float(po_gen.get("source_grounding", 0.0))), 2),
+            },
+            {
+                "metric": "faithfulness",
+                "without_prefpo": round(float(std_gen.get("faithfulness", 0.0)), 4),
+                "with_prefpo": round(float(po_gen.get("faithfulness", 0.0)), 4),
+                "improvement_pct": round(_pct_improvement(float(std_gen.get("faithfulness", 0.0)), float(po_gen.get("faithfulness", 0.0))), 2),
+            },
+            {
+                "metric": "relevance",
+                "without_prefpo": round(float(std_gen.get("relevance", 0.0)), 4),
+                "with_prefpo": round(float(po_gen.get("relevance", 0.0)), 4),
+                "improvement_pct": round(_pct_improvement(float(std_gen.get("relevance", 0.0)), float(po_gen.get("relevance", 0.0))), 2),
+            },
+            {
+                "metric": "completeness",
+                "without_prefpo": round(float(std_gen.get("completeness", 0.0)), 4),
+                "with_prefpo": round(float(po_gen.get("completeness", 0.0)), 4),
+                "improvement_pct": round(_pct_improvement(float(std_gen.get("completeness", 0.0)), float(po_gen.get("completeness", 0.0))), 2),
+            },
+        ]
+
+        def _improvement_cell(base: float, contender: float, lower_is_better: bool = False) -> str:
+            pct = _pct_improvement(base, contender, lower_is_better=lower_is_better)
+            if pct > 0:
+                return f"<span style='color:#1f9d55;font-weight:600'>▲ {pct:.2f}%</span>"
+            if pct < 0:
+                return f"<span style='color:#d64545;font-weight:600'>▼ {abs(pct):.2f}%</span>"
+            return "<span style='color:#6b7280;font-weight:600'>■ 0.00%</span>"
+
+        st.markdown(f"**Number of gold source truth:** `{total_q}`")
+
+        ret_m = metrics.get("retrieval_metrics") or {}
+
+        if ret_m:
+            st.markdown("### Retrieval")
+            k_r1, k_r3, k_r5, k_mrr = st.columns(4)
+            with k_r1:
+                v = ret_m.get("recall@1")
+                st.metric("Recall@1", f"{float(v):.3f}" if v is not None else "—")
+            with k_r3:
+                v = ret_m.get("recall@3")
+                st.metric("Recall@3", f"{float(v):.3f}" if v is not None else "—")
+            with k_r5:
+                v = ret_m.get("recall@5")
+                st.metric("Recall@5", f"{float(v):.3f}" if v is not None else "—")
+            with k_mrr:
+                v = ret_m.get("mrr@10")
+                st.metric("MRR@10", f"{float(v):.3f}" if v is not None else "—")
+
+        st.markdown("### Latency metrics")
+        latency_rows = [
+            ("Avg latency (ms)", float(std_lat), float(prefpo_lat), True),
+            (
+                "Avg generation (ms)",
+                float(std_gen.get("avg_generate_ms", std_stats.get("avg_generate_ms", 0.0))),
+                float(po_gen.get("avg_generate_ms", po_stats.get("avg_generate_ms", 0.0))),
+                True,
+            ),
+        ]
+        if not using_revalidated_summary:
+            latency_rows.extend(
+                [
+                    ("P50 latency (ms)", float(std_stats.get("p50_latency_ms", 0.0)), float(po_stats.get("p50_latency_ms", 0.0)), True),
+                    ("P95 latency (ms)", float(std_stats.get("p95_latency_ms", 0.0)), float(po_stats.get("p95_latency_ms", 0.0)), True),
+                ]
+            )
+        latency_table = """
+        <table style="width:100%; border-collapse:collapse; margin-bottom:12px;">
+          <thead>
+            <tr>
+              <th style="text-align:left; border-bottom:1px solid #ddd; padding:8px;">Metric</th>
+              <th style="text-align:right; border-bottom:1px solid #ddd; padding:8px;">Standard RAG</th>
+              <th style="text-align:right; border-bottom:1px solid #ddd; padding:8px;">RAG with PrefPO prompt optimization</th>
+              <th style="text-align:right; border-bottom:1px solid #ddd; padding:8px;">Improvement percentage</th>
+            </tr>
+          </thead>
+          <tbody>
+        """
+        for name, base, contender, lower_better in latency_rows:
+            latency_table += (
+                f"<tr>"
+                f"<td style='padding:8px; border-bottom:1px solid #f0f0f0;'>{name}</td>"
+                f"<td style='padding:8px; text-align:right; border-bottom:1px solid #f0f0f0;'>{base:.2f}</td>"
+                f"<td style='padding:8px; text-align:right; border-bottom:1px solid #f0f0f0;'>{contender:.2f}</td>"
+                f"<td style='padding:8px; text-align:right; border-bottom:1px solid #f0f0f0;'>{_improvement_cell(base, contender, lower_better)}</td>"
+                f"</tr>"
+            )
+        latency_table += "</tbody></table>"
+        st.markdown(latency_table, unsafe_allow_html=True)
+
+        st.markdown("### Generation metrics")
+        generation_rows = [
+            ("Citation validity", float(std_gen.get("citation_validity", 0.0)), float(po_gen.get("citation_validity", 0.0))),
+            ("Citation coverage", float(std_gen.get("citation_coverage", 0.0)), float(po_gen.get("citation_coverage", 0.0))),
+            ("Source grounding", float(std_gen.get("source_grounding", 0.0)), float(po_gen.get("source_grounding", 0.0))),
+            ("Faithfulness", float(std_gen.get("faithfulness", 0.0)), float(po_gen.get("faithfulness", 0.0))),
+            ("Relevance", float(std_gen.get("relevance", 0.0)), float(po_gen.get("relevance", 0.0))),
+            ("Completeness", float(std_gen.get("completeness", 0.0)), float(po_gen.get("completeness", 0.0))),
+            ("Overall", float(std_gen.get("overall", 0.0)), float(po_gen.get("overall", 0.0))),
+        ]
+        generation_table = """
+        <table style="width:100%; border-collapse:collapse;">
+          <thead>
+            <tr>
+              <th style="text-align:left; border-bottom:1px solid #ddd; padding:8px;">Metric</th>
+              <th style="text-align:right; border-bottom:1px solid #ddd; padding:8px;">Standard RAG</th>
+              <th style="text-align:right; border-bottom:1px solid #ddd; padding:8px;">RAG with PrefPO prompt optimization</th>
+              <th style="text-align:right; border-bottom:1px solid #ddd; padding:8px;">Improvement percentage</th>
+            </tr>
+          </thead>
+          <tbody>
+        """
+        for name, base, contender in generation_rows:
+            generation_table += (
+                f"<tr>"
+                f"<td style='padding:8px; border-bottom:1px solid #f0f0f0;'>{name}</td>"
+                f"<td style='padding:8px; text-align:right; border-bottom:1px solid #f0f0f0;'>{base:.4f}</td>"
+                f"<td style='padding:8px; text-align:right; border-bottom:1px solid #f0f0f0;'>{contender:.4f}</td>"
+                f"<td style='padding:8px; text-align:right; border-bottom:1px solid #f0f0f0;'>{_improvement_cell(base, contender, False)}</td>"
+                f"</tr>"
+            )
+        generation_table += "</tbody></table>"
+        st.markdown(generation_table, unsafe_allow_html=True)
+
+    except FileNotFoundError:
+        st.info("🚀 Starting 126-question evaluation in the background. Results will appear here once complete (typically 20–40 minutes). Refresh this page to check progress.")
+    except Exception as e:
+        st.error(f"Error loading evaluation metrics: {e}")
 
 
 def _render_example_queries():
@@ -1435,12 +2095,9 @@ def _render_example_queries():
 
 
 def main():
-    st.title("Retrieval Augmented Generation for Climate Challenges")
+    st.title("Retrieval Augmented Generation for Climate Tech Challenges")
     st.caption("Search across your document collection")
 
-    retriever = get_retriever()
-    reranker = get_reranker_model()
-    generator = get_generator()
     whisper_model = load_whisper_model()
 
     _init_voice_state()
@@ -1450,9 +2107,16 @@ def main():
         st.session_state["just_transcribed"] = False
 
     if should_search and (query or image_file is not None):
+        # Lazily initialize retrieval/generation stack only when needed.
+        # This avoids blocking the UI when background eval holds a local Qdrant lock.
+        retriever = get_retriever()
+        reranker = get_reranker_model()
+        generator = get_generator()
         _render_answer(query, retriever, reranker, generator, image_file=image_file)
     else:
         _render_example_queries()
+        
+    _render_evaluation_dashboard()
 
 
 if __name__ == "__main__":

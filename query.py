@@ -1,3 +1,4 @@
+from __future__ import annotations
 """Query expansion module used to improve retrieval recall via semantic variations."""
 
 from typing import List

@@ -70,6 +70,10 @@ eval_results_*.json
 
 # Logs
 *.log
+eval_run.log
+
+# Eval checkpoint (regenerated locally)
+evaluation_results.partial.json
 
 # Local debug outputs
 image_debug_runs/

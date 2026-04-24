@@ -1,10 +1,5 @@
-[theme]
-base = "light"
-
 [server]
 headless = true
-port = 8501
-fileWatcherType = "none"
 
 [browser]
 gatherUsageStats = false

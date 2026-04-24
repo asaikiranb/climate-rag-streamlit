@@ -1,5 +1,7 @@
 """Custom citation metrics and offline retrieval-eval scoring helpers."""
 
+from __future__ import annotations
+
 import math
 import re
 from dataclasses import dataclass
@@ -124,7 +126,7 @@ def compute_custom_metrics(answer_text: str, results: List[Dict]) -> Dict:
 K_VALUES = (1, 3, 5, 10)
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True)
 class RetrievalScore:
     """Per-row retrieval metrics for either doc or page evaluation."""
 

@@ -1,3 +1,4 @@
+from __future__ import annotations
 """Renders the grounding context and source attribution as HTML for the Streamlit UI."""
 
 import re

@@ -107,8 +107,22 @@ _JUDGE_PROMPTS = {
     ),
 }
 
+# One Ollama call for all three dimensions (default; set OLLAMA_JUDGE_SEPARATE=1 for 3 calls).
+_JUDGE_COMBINED = (
+    "You are an expert evaluator for retrieval-augmented generation (RAG) systems.\n\n"
+    "Context:\n{context}\n\n"
+    "Question: {question}\n"
+    "Answer: {answer}\n\n"
+    "Rate each dimension as an integer 1-5:\n"
+    "- faithfulness: only claims supported by the context\n"
+    "- relevance: directly answers the question\n"
+    "- completeness: covers the key aspects of the question\n\n"
+    "Output ONLY valid JSON, no other text: "
+    '{{"faithfulness": <1-5>, "relevance": <1-5>, "completeness": <1-5>}}'
+)
 
-def _call_ollama(prompt: str) -> str:
+
+def _call_ollama(prompt: str, num_predict: int = 200) -> str:
     """Send a prompt to Ollama and return the raw response text."""
     _ensure_ollama_running()
     response = requests.post(
@@ -119,7 +133,7 @@ def _call_ollama(prompt: str) -> str:
             "stream": False,
             "options": {
                 "temperature": 0.1,
-                "num_predict": 200,
+                "num_predict": num_predict,
             },
         },
         timeout=120,
@@ -148,6 +162,45 @@ def _parse_score(response: str) -> float:
     return 0.5  # neutral fallback
 
 
+def _parse_combined_judge(response: str) -> Dict[str, float]:
+    """Parse a single JSON object with faithfulness, relevance, completeness (1-5 or nested)."""
+    s = response.strip()
+    data: dict | None = None
+    start = s.find("{")
+    if start >= 0:
+        for end in range(len(s) - 1, start, -1):
+            if s[end] != "}":
+                continue
+            try:
+                candidate = json.loads(s[start : end + 1])
+            except json.JSONDecodeError:
+                continue
+            if isinstance(candidate, dict) and any(
+                k in candidate for k in ("faithfulness", "relevance", "completeness")
+            ):
+                data = candidate
+                break
+    if not isinstance(data, dict):
+        d_raw = {k: 3.0 for k in ("faithfulness", "relevance", "completeness")}
+    else:
+        d_raw = {}
+        for k in ("faithfulness", "relevance", "completeness"):
+            v = data.get(k)
+            if v is None:
+                d_raw[k] = 3.0
+            elif isinstance(v, dict):
+                d_raw[k] = float(v.get("score", 3))
+            else:
+                d_raw[k] = float(v)
+    out: Dict[str, float] = {}
+    for k in ("faithfulness", "relevance", "completeness"):
+        raw = d_raw.get(k, 3.0)
+        clamped = max(1.0, min(5.0, float(raw)))
+        out[k] = round((clamped - 1) / 4, 4)
+    out["overall"] = round(sum(out[k] for k in ("faithfulness", "relevance", "completeness")) / 3, 4)
+    return out
+
+
 def judge_generation(
     question: str,
     context: str,
@@ -160,22 +213,39 @@ def judge_generation(
     Returns dict with keys: faithfulness, relevance, completeness, overall.
     All scores normalised to [0, 1].
     """
-    # Truncate context to avoid overwhelming the judge model
-    ctx_truncated = context[:4000] if len(context) > 4000 else context
+    ctx_max = int(os.environ.get("OLLAMA_JUDGE_CTX", "3000"))
+    ctx_truncated = context[:ctx_max] if len(context) > ctx_max else context
+    if os.environ.get("OLLAMA_JUDGE_SEPARATE", "").lower() in ("1", "true", "yes"):
+        scores: Dict[str, float] = {}
+        for dimension, template in _JUDGE_PROMPTS.items():
+            prompt = template.format(
+                context=ctx_truncated,
+                question=question,
+                answer=answer,
+            )
+            try:
+                response = _call_ollama(prompt)
+                scores[dimension] = _parse_score(response)
+            except Exception as e:
+                print(f"    Ollama judge [{dimension}] error: {type(e).__name__}: {e}")
+                scores[dimension] = 0.0
+        scores["overall"] = round(sum(scores.values()) / len(scores), 4)
+        return scores
 
-    scores: Dict[str, float] = {}
-    for dimension, template in _JUDGE_PROMPTS.items():
-        prompt = template.format(
-            context=ctx_truncated,
-            question=question,
-            answer=answer,
-        )
-        try:
-            response = _call_ollama(prompt)
-            scores[dimension] = _parse_score(response)
-        except Exception as e:
-            print(f"    Ollama judge [{dimension}] error: {type(e).__name__}: {e}")
-            scores[dimension] = 0.0
-
-    scores["overall"] = round(sum(scores.values()) / len(scores), 4)
-    return scores
+    np = int(os.environ.get("OLLAMA_JUDGE_NUM_PREDICT", "0")) or 150
+    prompt = _JUDGE_COMBINED.format(
+        context=ctx_truncated,
+        question=question,
+        answer=answer,
+    )
+    try:
+        response = _call_ollama(prompt, num_predict=np)
+        return _parse_combined_judge(response)
+    except Exception as e:
+        print(f"    Ollama judge [combined] error: {type(e).__name__}: {e}")
+        return {
+            "faithfulness": 0.0,
+            "relevance": 0.0,
+            "completeness": 0.0,
+            "overall": 0.0,
+        }
