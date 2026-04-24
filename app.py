@@ -2095,27 +2095,8 @@ def _render_example_queries():
 
 
 def main():
-    st.title("Retrieval Augmented Generation for Climate Tech Challenges")
-    st.caption("Search across your document collection")
-
-    whisper_model = load_whisper_model()
-
-    _init_voice_state()
-    query, image_file, should_search = _render_voice_recorder(whisper_model)
-
-    if st.session_state["just_transcribed"]:
-        st.session_state["just_transcribed"] = False
-
-    if should_search and (query or image_file is not None):
-        # Lazily initialize retrieval/generation stack only when needed.
-        # This avoids blocking the UI when background eval holds a local Qdrant lock.
-        retriever = get_retriever()
-        reranker = get_reranker_model()
-        generator = get_generator()
-        _render_answer(query, retriever, reranker, generator, image_file=image_file)
-    else:
-        _render_example_queries()
-        
+    st.title("AI Evaluations")
+    st.caption("CI evaluation dashboard")
     _render_evaluation_dashboard()
 
 
