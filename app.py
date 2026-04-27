@@ -1107,6 +1107,7 @@ def _render_monitoring_panel(
     yolo_artifacts: dict[str, Any] | None,
     generation_artifacts: dict[str, Any] | None,
     image_bytes: bytes | None = None,
+    key_prefix: str = "monitor",
 ):
     with st.expander("Monitoring / Observability", expanded=False):
         st.markdown("<p class='monitor-note'>Stage-level visibility for query execution, OCR, retrieval and generation.</p>", unsafe_allow_html=True)
@@ -1163,7 +1164,7 @@ def _render_monitoring_panel(
         with st.expander("2) Query & Reconstruction", expanded=False):
             effective_query = (monitor.get("effective_query", "") or "").strip()
             if effective_query:
-                st.text_area("Effective query", value=effective_query, height=120)
+                st.text_area("Effective query", value=effective_query, height=120, key=f"{key_prefix}_effective_query")
 
             reconstruction = monitor.get("query_reconstruction") or {}
             if reconstruction:
@@ -1251,7 +1252,7 @@ def _render_monitoring_panel(
 
                     ocr_text = image_artifacts.get("ocr_text")
                     if ocr_text:
-                        st.text_area("OCR text preview", value=ocr_text[:2500], height=180)
+                        st.text_area("OCR text preview", value=ocr_text[:2500], height=180, key=f"{key_prefix}_ocr_preview")
 
                     ocr_lines = image_artifacts.get("lines") or []
                     if ocr_lines:
@@ -1290,7 +1291,7 @@ def _render_monitoring_panel(
 
                 answer_preview = generation_artifacts.get("answer")
                 if answer_preview:
-                    st.text_area("LLM answer preview", value=str(answer_preview)[:3000], height=200)
+                    st.text_area("LLM answer preview", value=str(answer_preview)[:3000], height=200, key=f"{key_prefix}_answer_preview")
 
                 if web_snippets:
                     st.text_area(
@@ -1300,6 +1301,7 @@ def _render_monitoring_panel(
                             for idx, snippet in enumerate(web_snippets, 1)
                         )[:3000],
                         height=200,
+                        key=f"{key_prefix}_web_snippets_preview",
                     )
             else:
                 st.caption("No generation artifacts captured for this run.")
@@ -1418,15 +1420,29 @@ def _render_answer(
             st.error(f"Search error: {str(e)}")
             _record_stage(monitor, "pipeline_error", total_started, status="error", reason=str(e))
             st.session_state["last_monitor"] = monitor
-            _render_monitoring_panel(monitor, image_artifacts, yolo_artifacts, generation_artifacts, image_bytes=image_bytes)
-            st.stop()
+            _render_monitoring_panel(
+                monitor,
+                image_artifacts,
+                yolo_artifacts,
+                generation_artifacts,
+                image_bytes=image_bytes,
+                key_prefix="prefpo_error",
+            )
+            return
 
         if not results:
             st.info("No relevant documents found. Try a different query.")
             _record_stage(monitor, "pipeline_result", total_started, status="error", reason="no_results")
             st.session_state["last_monitor"] = monitor
-            _render_monitoring_panel(monitor, image_artifacts, yolo_artifacts, generation_artifacts, image_bytes=image_bytes)
-            st.stop()
+            _render_monitoring_panel(
+                monitor,
+                image_artifacts,
+                yolo_artifacts,
+                generation_artifacts,
+                image_bytes=image_bytes,
+                key_prefix="prefpo_empty",
+            )
+            return
 
         # Selection of top 5 for generation
         top_results = results[:5]
@@ -1435,16 +1451,6 @@ def _render_answer(
             fields = image_artifacts.get("fields") or {}
             ocr_text = str(image_artifacts.get("ocr_text") or "")[:1000]
             extra_input_signals = f"OCR fields: {fields}\nOCR text: {ocr_text}"
-
-        std_gen_start = time.perf_counter()
-        generation_artifacts_std = generator.generate_with_metadata(
-            effective_query,
-            top_results,
-            extra_context=extra_input_signals,
-            allow_web_fallback=WEB_FALLBACK_ENABLED,
-        )
-        std_gen_ms = round((time.perf_counter() - std_gen_start) * 1000.0, 2)
-        answer = generation_artifacts_std.get("answer", "")
 
         prefpo_gen_start = time.perf_counter()
         generation_artifacts_prefpo = generator.generate_with_metadata(
@@ -1457,23 +1463,10 @@ def _render_answer(
         prefpo_gen_ms = round((time.perf_counter() - prefpo_gen_start) * 1000.0, 2)
         answer_prefpo = generation_artifacts_prefpo.get("answer", "")
 
-        retrieval_ms = round((time.perf_counter() - total_started) * 1000.0, 2) - std_gen_ms - prefpo_gen_ms
+        retrieval_ms = round((time.perf_counter() - total_started) * 1000.0, 2) - prefpo_gen_ms
 
-    # Build per-side monitors: shared retrieval stages + separate generation stage
+    # Single monitor: shared retrieval stages + PrefPO generation stage
     base_stages = list(monitor["stages"])
-    monitor_std: dict[str, Any] = {
-        **monitor,
-        "stages": base_stages + [{
-            "stage": "generate_answer",
-            "duration_ms": std_gen_ms,
-            "status": "ok",
-            "used_top_k": len(top_results),
-            "web_used": generation_artifacts_std.get("web_used", False),
-            "web_snippet_count": len(generation_artifacts_std.get("web_snippets", []) or []),
-            "answer_chars": len(answer or ""),
-        }],
-        "total_latency_ms": retrieval_ms + std_gen_ms,
-    }
     monitor_prefpo: dict[str, Any] = {
         **monitor,
         "stages": base_stages + [{
@@ -1487,42 +1480,21 @@ def _render_answer(
         }],
         "total_latency_ms": retrieval_ms + prefpo_gen_ms,
     }
-    st.session_state["last_monitor"] = monitor_std
+    st.session_state["last_monitor"] = monitor_prefpo
 
-    # ------------------ Side-by-Side Response Interface ------------------
-    col_std, col_prefpo = st.columns(2, gap="medium")
-
-    with col_std:
-        st.markdown("<p class='title-left'>Standard RAG (Default Prompt)</p>", unsafe_allow_html=True)
-        with st.expander("Prompt template (sent as user message — {context} and {query} filled at runtime)", expanded=False):
-            st.code(SYSTEM_PROMPT, language=None)
-        answer_html_std = build_answer_html(answer, top_results)
-        answer_lines_std = answer.count("\n") + 1
-        estimated_height_std = 350 + (answer_lines_std * 22) + (len(top_results) * 55)
-        components.html(answer_html_std, height=min(max(estimated_height_std, 450), 1800), scrolling=True)
-        _render_monitoring_panel(
-            monitor_std,
-            image_artifacts,
-            yolo_artifacts,
-            generation_artifacts_std,
-            image_bytes=image_bytes,
-        )
-
-    with col_prefpo:
-        st.markdown("<p class='title-right'>PrefPO RAG (Optimized Prompt)</p>", unsafe_allow_html=True)
-        with st.expander("Prompt template (sent as user message — {context} and {query} filled at runtime)", expanded=False):
-            st.code(PREFPO_OPTIMIZED_PROMPT, language=None)
-        answer_html_prefpo = build_answer_html(answer_prefpo, top_results)
-        answer_lines_prefpo = answer_prefpo.count("\n") + 1
-        estimated_height_prefpo = 350 + (answer_lines_prefpo * 22) + (len(top_results) * 55)
-        components.html(answer_html_prefpo, height=min(max(estimated_height_prefpo, 450), 1800), scrolling=True)
-        _render_monitoring_panel(
-            monitor_prefpo,
-            image_artifacts,
-            yolo_artifacts,
-            generation_artifacts_prefpo,
-            image_bytes=image_bytes,
-        )
+    # ------------------ Single-output Response Interface (PrefPO default) ------------------
+    answer_html_prefpo = build_answer_html(answer_prefpo, top_results)
+    answer_lines_prefpo = answer_prefpo.count("\n") + 1
+    estimated_height_prefpo = 350 + (answer_lines_prefpo * 22) + (len(top_results) * 55)
+    components.html(answer_html_prefpo, height=min(max(estimated_height_prefpo, 450), 1800), scrolling=True)
+    _render_monitoring_panel(
+        monitor_prefpo,
+        image_artifacts,
+        yolo_artifacts,
+        generation_artifacts_prefpo,
+        image_bytes=image_bytes,
+        key_prefix="prefpo_main",
+    )
 
 _EVAL_PROGRESS_FILE = Path("eval_progress.json")
 _EVAL_RESULTS_FILE = Path("evaluation_results.json")
